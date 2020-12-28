@@ -4,6 +4,9 @@
 // that can be found in the LICENSE.txt file in the root of the source
 // tree.
 
+// see ipcipher specification here:
+// https://powerdns.org/ipcipher/ipcipher.md.html
+
 package anonymization
 
 import (
