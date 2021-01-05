@@ -37,10 +37,18 @@ func setIPv4Bytes(IP net.IP, b [4]byte) (err error) {
 }
 
 // encryptIPv4 anonymizes the "IP" address by encrypting it
-// "encryptedIP" preserves the internal net.IP format of the input parameter "IP" address
 func encryptIPv4(key [16]byte, IP net.IP) (encryptedIP net.IP, err error) {
-	if c, err := ipcrypt.EncryptBin(key, IP); err == nil {
-		err = setIPv4Bytes(encryptedIP, c)
+	var c [4]byte
+	if c, err = ipcrypt.EncryptBin(key, IP); err == nil {
+		encryptedIP = c[:]
+	}
+	return
+}
+
+func encryptIPv4InPlace(key [16]byte, IP net.IP) (err error) {
+	var c [net.IPv4len]byte
+	if c, err = ipcrypt.EncryptBin(key, IP); err == nil {
+		err = setIPv4Bytes(IP, c)
 	}
 	return
 }
@@ -50,17 +58,40 @@ func encryptIPv6(key [16]byte, IP net.IP) (encryptedIP net.IP, err error) {
 	if block, err = aes.NewCipher(key[:]); err != nil {
 		encryptedIP = []byte{}
 	} else {
+		encryptedIP = make([]byte, net.IPv6len)
 		block.Encrypt(encryptedIP, IP)
 	}
 	return
 }
 
-// EncryptIP anonymizes the "IP" address by encrypting it
+func encryptIPv6InPlace(key [16]byte, IP net.IP) (err error) {
+	var block cipher.Block
+	if block, err = aes.NewCipher(key[:]); err == nil {
+		var c [net.IPv6len]byte
+		block.Encrypt(c[:], IP)
+		copy(IP, c[:])
+	}
+	return
+}
+
+// EncryptIP returns the anonymized (encrypted) "IP" address
 func EncryptIP(key [16]byte, IP net.IP) (encryptedIP net.IP, err error) {
 	if IP.To4() != nil {
 		encryptedIP, err = encryptIPv4(key, IP)
 	} else if IP.To16() != nil {
 		encryptedIP, err = encryptIPv6(key, IP)
+	} else {
+		err = ErrBrokenIP
+	}
+	return
+}
+
+// EncryptIPInPlace anonymizes the "IP" address by encrypting it
+func EncryptIPInPlace(key [16]byte, IP net.IP) (err error) {
+	if IP.To4() != nil {
+		err = encryptIPv4InPlace(key, IP)
+	} else if IP.To16() != nil {
+		err = encryptIPv6InPlace(key, IP)
 	} else {
 		err = ErrBrokenIP
 	}
