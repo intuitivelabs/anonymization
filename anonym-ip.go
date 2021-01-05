@@ -10,6 +10,8 @@
 package anonymization
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"errors"
 	"github.com/intuitivelabs/ipcrypt"
 	"net"
@@ -44,6 +46,12 @@ func encryptIPv4(key [16]byte, IP net.IP) (encryptedIP net.IP, err error) {
 }
 
 func encryptIPv6(key [16]byte, IP net.IP) (encryptedIP net.IP, err error) {
+	var block cipher.Block
+	if block, err = aes.NewCipher(key[:]); err != nil {
+		encryptedIP = []byte{}
+	} else {
+		block.Encrypt(encryptedIP, IP)
+	}
 	return
 }
 
