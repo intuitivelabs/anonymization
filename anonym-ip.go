@@ -40,8 +40,8 @@ func NewCipher(key []byte) (cipher.Block, error) {
 		break
 	}
 	var a [BlockSize]byte
-	for i := range key {
-		a[i] = key[i]
+	for i,v := range key {
+		a[i] = v
 	}
 	return &Ipcipher{a}, nil
 }
