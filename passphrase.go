@@ -74,7 +74,8 @@ type KeyValidator struct {
 	// can be either pre-allocated or allocated on-the-fly when the checksum is computed
 	mac hash.Hash
 	// how much of the key validation code is used for validation
-	length    int
+	length int
+	// nonce is used
 	withNonce bool
 	nonce     uint32
 }
@@ -178,7 +179,6 @@ func (vtor *KeyValidator) computeWithNonce(nonce ...uint32) (kv KeyValidation) {
 		mac = hmac.New(vtor.hash.New, vtor.key)
 	}
 	mac.Reset()
-	mac.Write(vtor.key)
 	if len(nonce) > 0 {
 		var b [4]byte
 		kv.nonce = nonce[0]

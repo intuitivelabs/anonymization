@@ -147,3 +147,27 @@ func TestKeyValidationCode(t *testing.T) {
 		}
 	})
 }
+
+func BenchmarkKeyValidationCode(b *testing.B) {
+	stdout := bufio.NewWriter(os.Stdout)
+	passphrases := [...]string{
+		"foobar",
+		"123456abcd78910aaaaabbb",
+		"password",
+	}
+	b.Run("pre-allocated validator one compute op", func(b *testing.B) {
+		defer stdout.Flush()
+		k := GenerateKeyFromPassphrase(passphrases[0])
+		// pre-allocated validator with nonce
+		if validator, err := NewKeyValidator(crypto.SHA256, k, 0, true, true); err != nil {
+			b.Fatalf("validator initialization error %s", err)
+		} else {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if c := validator.Compute(); len(c) == 0 {
+					b.Errorf("validator code len is 0")
+				}
+			}
+		}
+	})
+}
