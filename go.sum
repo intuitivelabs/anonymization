@@ -1,3 +1,5 @@
+github.com/google/uuid v1.2.0 h1:qJYtXnJRWmpe7m/3XlyhrsLrEURqHRM2kxzoxXqyUDs=
+github.com/google/uuid v1.2.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201221222832-e8c1af2d7e80 h1:KPTe89jn6irmLAaAPfC79maEX5jHpdELZpPj0Tp8lcw=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201221222832-e8c1af2d7e80/go.mod h1:1Tbk2GMxSflaUSwrQaFnMrg1VvTDM4JO3Jbh7RzPjSs=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201222150316-123c6c9e333e h1:YVGcZgvVg/JJuuq++oRQ+DSFOlIYNXfZQLSmrGTqrNc=
