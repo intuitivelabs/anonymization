@@ -20,12 +20,13 @@ type NonceType int
 
 // nonce type
 const (
-	NonceRandom NonceType = iota
+	NonceNone NonceType = iota
+	NonceRandom
 	NonceCounter
 	NonceTimestamp
 )
 
-var NoncerNames = [...]string{NonceRandom: "Random nonce", NonceCounter: "Counter nonce", NonceTimestamp: "Timestamp nonce"}
+var NoncerNames = [...]string{NonceNone: "No Nonce", NonceRandom: "Random nonce", NonceCounter: "Counter nonce", NonceTimestamp: "Timestamp nonce"}
 
 // randomUint32 generates a random unsigned integer
 func randomUint32() (n uint32, err error) {
