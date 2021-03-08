@@ -10,23 +10,42 @@
 package anonymization
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"crypto/subtle"
+	"fmt"
 	"golang.org/x/crypto/pbkdf2"
+	"os"
 )
 
 const (
-	Salt             = "ipcipheripcipher"
-	EncryptionKeyLen = 16
-	IterationCount   = 50000
+	Salt = "ipcipheripcipher"
+	// key lengths are in bytes
+	EncryptionKeyLen     = 16
+	AuthenticationKeyLen = 32
+	IterationCount       = 50000
+	// checksum size is in bytes
+	ChecksumMaxSize   = 64
+	ChecksumMinLength = 5
+	// maximum length of an base 10 32 bit integer in ASCII characters
+	MaxUintLen = 10
+	debugOn    = false
 )
 
-func GenerateKeyFromPassphrase(passphrase string) []byte {
-	return pbkdf2.Key([]byte(passphrase), []byte(Salt), IterationCount, EncryptionKeyLen, sha1.New)
+func debug(format string, args ...interface{}) {
+	stdout := bufio.NewWriter(os.Stdout)
+	defer stdout.Flush()
+	if debugOn {
+		fmt.Fprintf(stdout, format, args...)
+	}
 }
 
-func GenerateKeyFromPassphraseAndCopy(passphrase string, key []byte) {
-	tmpKey := GenerateKeyFromPassphrase(passphrase)
+func GenerateKeyFromPassphrase(passphrase string, keyLen int) []byte {
+	return pbkdf2.Key([]byte(passphrase), []byte(Salt), IterationCount, keyLen, sha1.New)
+}
+
+func GenerateKeyFromPassphraseAndCopy(passphrase string, keyLen int, key []byte) {
+	tmpKey := GenerateKeyFromPassphrase(passphrase, keyLen)
 	subtle.ConstantTimeCopy(1, key[:], tmpKey[:])
 	return
 }
