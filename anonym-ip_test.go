@@ -23,7 +23,7 @@ func TestEncryptIP(t *testing.T) {
 		}
 		passphrase := "justapassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		var enc, dec net.IP
 		enc = make([]byte, net.IPv4len)
 		dec = make([]byte, net.IPv4len)
@@ -71,7 +71,7 @@ func TestEncryptIP(t *testing.T) {
 		}
 		passphrase := "anotherlongpassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		var enc, dec net.IP
 		enc = make([]byte, net.IPv6len)
 		dec = make([]byte, net.IPv6len)
@@ -128,7 +128,7 @@ func TestEncryptedIP(t *testing.T) {
 		}
 		passphrase := "justapassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		for _, c := range cases {
 			if enc, err := EncryptedIP(key, c); err != nil {
 				t.Fatalf("encryption error: %s for IP %s", err, c.String())
@@ -166,7 +166,7 @@ func TestEncryptedIP(t *testing.T) {
 		}
 		passphrase := "anotherlongpassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		for _, c := range cases {
 			if enc, err := EncryptedIP(key, c); err != nil {
 				t.Fatalf("encryption error: %s for IP %s", err, c.String())
@@ -213,7 +213,7 @@ func TestEncryptIPInPlace(t *testing.T) {
 		}
 		passphrase := "justapassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		var tmpIP net.IP
 		tmpIP = make([]byte, net.IPv4len)
 		for _, c := range cases {
@@ -254,7 +254,7 @@ func TestEncryptIPInPlace(t *testing.T) {
 		}
 		passphrase := "anotherlongpassword"
 		var key [16]byte
-		GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+		GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 		for _, c := range cases {
 			if enc, err := EncryptedIP(key, c); err != nil {
 				t.Fatalf("encryption error: %s for IP %s", err, c.String())
@@ -293,7 +293,7 @@ func TestDecryptIPInPlace(t *testing.T) {
 func TestEncrypt(t *testing.T) {
 	passphrase := "justalonglongpasswordforanonymization"
 	var key [16]byte
-	GenerateKeyFromPassphraseAndCopy(passphrase, key[:])
+	GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
 	ipCipher, err := NewCipher(key[:])
 	if err != nil {
 		t.Errorf("ipcipher error: %s ", err)

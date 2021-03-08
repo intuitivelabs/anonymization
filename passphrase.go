@@ -20,9 +20,10 @@ import (
 
 const (
 	Salt = "ipcipheripcipher"
-	// key length is in bytes
-	EncryptionKeyLen = 16
-	IterationCount   = 50000
+	// key lengths are in bytes
+	EncryptionKeyLen     = 16
+	AuthenticationKeyLen = 32
+	IterationCount       = 50000
 	// checksum size is in bytes
 	ChecksumMaxSize   = 64
 	ChecksumMinLength = 5
@@ -39,12 +40,12 @@ func debug(format string, args ...interface{}) {
 	}
 }
 
-func GenerateKeyFromPassphrase(passphrase string) []byte {
-	return pbkdf2.Key([]byte(passphrase), []byte(Salt), IterationCount, EncryptionKeyLen, sha1.New)
+func GenerateKeyFromPassphrase(passphrase string, keyLen int) []byte {
+	return pbkdf2.Key([]byte(passphrase), []byte(Salt), IterationCount, keyLen, sha1.New)
 }
 
-func GenerateKeyFromPassphraseAndCopy(passphrase string, key []byte) {
-	tmpKey := GenerateKeyFromPassphrase(passphrase)
+func GenerateKeyFromPassphraseAndCopy(passphrase string, keyLen int, key []byte) {
+	tmpKey := GenerateKeyFromPassphrase(passphrase, keyLen)
 	subtle.ConstantTimeCopy(1, key[:], tmpKey[:])
 	return
 }

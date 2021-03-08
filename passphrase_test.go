@@ -11,7 +11,7 @@ import (
 
 var (
 	// controls the debug messages for tests
-	debugTestOn bool = true
+	debugTestOn bool = false
 )
 
 func debugTest(w *bufio.Writer, format string, args ...interface{}) {
@@ -32,7 +32,7 @@ func TestKeyValidationCode(t *testing.T) {
 		defer stdout.Flush()
 		for _, p := range passphrases {
 			go func() {
-				k := GenerateKeyFromPassphrase(p)
+				k := GenerateKeyFromPassphrase(p, AuthenticationKeyLen)
 				// local key validator with nonce
 				if validator, err := NewKeyValidator(crypto.SHA256, k, 0, "salt", NonceCounter, true, true); err != nil {
 					t.Fatalf("validator initialization error %s", err)
@@ -56,7 +56,7 @@ func TestKeyValidationCode(t *testing.T) {
 		defer stdout.Flush()
 		for _, p := range passphrases {
 			go func() {
-				k := GenerateKeyFromPassphrase(p)
+				k := GenerateKeyFromPassphrase(p, AuthenticationKeyLen)
 				// local key validator with nonce
 				if validator, err := NewKeyValidator(crypto.SHA256, k, 0, "salt", NonceCounter, true, true); err != nil {
 					t.Fatalf("validator initialization error %s", err)
@@ -81,7 +81,7 @@ func TestKeyValidationCode(t *testing.T) {
 	})
 	t.Run("one thread with pre-allocated validator", func(t *testing.T) {
 		defer stdout.Flush()
-		k := GenerateKeyFromPassphrase(passphrases[0])
+		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		go func() {
 			// pre-allocated validator with nonce
 			if validator, err := NewKeyValidator(crypto.SHA256, k, 0, "salt", NonceCounter, true, true); err != nil {
@@ -106,7 +106,7 @@ func TestKeyValidationCode(t *testing.T) {
 	})
 	t.Run("one thread with on-the-fly validator", func(t *testing.T) {
 		defer stdout.Flush()
-		k := GenerateKeyFromPassphrase(passphrases[0])
+		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		go func() {
 			// on-the-fly key validator with nonce
 			if validator, err := NewKeyValidator(crypto.SHA256, k, 0, "salt", NonceCounter, true); err != nil {
@@ -131,7 +131,7 @@ func TestKeyValidationCode(t *testing.T) {
 	})
 	t.Run("variable length", func(t *testing.T) {
 		defer stdout.Flush()
-		k := GenerateKeyFromPassphrase(passphrases[0])
+		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		for l := 0; l <= crypto.SHA256.Size(); l++ {
 			if validator, err := NewKeyValidator(crypto.SHA256, k, l, "salt", NonceCounter, true); err != nil {
 				t.Fatalf("validator initialization error %s", err)
@@ -149,7 +149,8 @@ func TestKeyValidationCode(t *testing.T) {
 	})
 	t.Run("no nonce", func(t *testing.T) {
 		defer stdout.Flush()
-		k := GenerateKeyFromPassphrase(passphrases[0])
+		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
+		debugTest(stdout, "authentication key: %v\n", k)
 		for l := 0; l <= crypto.SHA256.Size(); l++ {
 			if validator, err := NewKeyValidator(crypto.SHA256, k, l, "salt", NonceNone, false); err != nil {
 				t.Fatalf("validator initialization error %s", err)
@@ -176,7 +177,7 @@ func BenchmarkKeyValidationCode(b *testing.B) {
 	}
 	b.Run("pre-allocated validator one compute op", func(b *testing.B) {
 		defer stdout.Flush()
-		k := GenerateKeyFromPassphrase(passphrases[0])
+		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		// pre-allocated validator with nonce
 		if validator, err := NewKeyValidator(crypto.SHA256, k, 0, uuid.New().String(), NonceCounter, true, true); err != nil {
 			b.Fatalf("validator initialization error %s", err)
