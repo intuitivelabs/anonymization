@@ -136,6 +136,10 @@ func TestEncryptedIP(t *testing.T) {
 				t.Fatalf("decryption error: %s for IP %s", err, c.String())
 			} else if !bytes.Equal(dec, c) {
 				t.Errorf("expected %s have %s:", c.String(), dec.String())
+			} else if decStr, err := DecryptedIPString(key, enc.String()); err != nil {
+				t.Fatalf("decryption error: %s for string IP %s", err, c.String())
+			} else if c.String() != decStr {
+				t.Errorf("expected %s have %s:", c.String(), decStr)
 			}
 		}
 	})
