@@ -40,7 +40,7 @@ func NewCipher(key []byte) (cipher.Block, error) {
 		break
 	}
 	var a [BlockSize]byte
-	for i,v := range key {
+	for i, v := range key {
 		a[i] = v
 	}
 	return &Ipcipher{a}, nil
@@ -243,6 +243,23 @@ func DecryptedIP(key [BlockSize]byte, encryptedIP net.IP) (IP net.IP, err error)
 		IP, err = decryptedIPv6(key, encryptedIP)
 	} else {
 		err = ErrBrokenIP
+	}
+	return
+}
+
+func DecryptedIPString(key [BlockSize]byte, encrypted string) (decrypted string, err error) {
+	decrypted = ""
+	var IP net.IP
+	encryptedIP := net.ParseIP(encrypted)
+	if encryptedIP.To4() != nil {
+		IP, err = decryptedIPv4(key, encryptedIP)
+	} else if encryptedIP.To16() != nil {
+		IP, err = decryptedIPv6(key, encryptedIP)
+	} else {
+		err = ErrBrokenIP
+	}
+	if err == nil {
+		decrypted = IP.String()
 	}
 	return
 }
