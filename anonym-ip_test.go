@@ -296,9 +296,7 @@ func TestDecryptIPInPlace(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	passphrase := "justalonglongpasswordforanonymization"
-	var key [16]byte
-	GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
-	ipCipher, err := NewCipher(key[:])
+	ipCipher, err := NewPassphraseCipher(passphrase)
 	if err != nil {
 		t.Errorf("ipcipher error: %s ", err)
 	}
