@@ -66,6 +66,14 @@ func (c *Ipcipher) Decrypt(dst, src []byte) {
 	return
 }
 
+func (c *Ipcipher) DecryptStr(src string) (dst string) {
+	var err error
+	if dst, err = DecryptedIPString(c.key, src); err != nil {
+		panic("anonymization: decrypt error")
+	}
+	return
+}
+
 // setIPv4Bytes sets the bytes of an IPv4 address preserving the format
 // (i.e. either plain IPv4 or IPv4 address represented as an IPv6 address)
 // it assumes "ip" is an IPv4 address
