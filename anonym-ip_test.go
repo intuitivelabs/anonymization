@@ -316,6 +316,12 @@ func TestEncrypt(t *testing.T) {
 			if !bytes.Equal(dec, c) {
 				t.Errorf("expected %s have %s:", c.String(), dec.String())
 			}
+			var decStr string
+			ipCipher.Encrypt(enc, c)
+			decStr = ipCipher.(*Ipcipher).DecryptStr(enc.String())
+			if decStr != c.String() {
+				t.Errorf("expected %s have %s:", c.String(), decStr)
+			}
 		}
 	})
 	t.Run("IPv6", func(t *testing.T) {
