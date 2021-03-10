@@ -166,6 +166,23 @@ func TestKeyValidationCode(t *testing.T) {
 			}
 		}
 	})
+	t.Run("passphrase validator", func(t *testing.T) {
+		defer stdout.Flush()
+		for l := 0; l <= crypto.SHA256.Size(); l++ {
+			if validator, err := NewPassphraseValidator(passphrases[0], l, "salt"); err != nil {
+				t.Fatalf("validator initialization error %s", err)
+			} else {
+				if c := validator.Compute(); len(c) == 0 {
+					t.Errorf("validator code len is 0")
+				} else {
+					debugTest(stdout, "key validation code: %s\n", c)
+					if !validator.Validate(c) {
+						t.Errorf("key is not valid")
+					}
+				}
+			}
+		}
+	})
 }
 
 func BenchmarkKeyValidationCode(b *testing.B) {
