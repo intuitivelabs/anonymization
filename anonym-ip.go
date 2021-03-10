@@ -46,6 +46,12 @@ func NewCipher(key []byte) (cipher.Block, error) {
 	return &Ipcipher{a}, nil
 }
 
+func NewPassphraseCipher(passphrase string) (cipher.Block, error) {
+	var key [EncryptionKeyLen]byte
+	GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
+	return NewCipher(key[:])
+}
+
 func (c *Ipcipher) Encrypt(dst, src []byte) {
 	if err := EncryptIP(c.key, dst, src); err != nil {
 		panic("anonymization: encrypt error")
