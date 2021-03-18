@@ -40,12 +40,21 @@ func debug(format string, args ...interface{}) {
 	}
 }
 
+func GenerateKeyFromBytes(bytes []byte, keyLen int) []byte {
+	return pbkdf2.Key(bytes, []byte(Salt), IterationCount, keyLen, sha1.New)
+}
+
+func GenerateKeyFromBytesAndCopy(bytes []byte, keyLen int, key []byte) {
+	tmpKey := GenerateKeyFromBytes(bytes, keyLen)
+	subtle.ConstantTimeCopy(1, key[:], tmpKey[:])
+	return
+}
+
 func GenerateKeyFromPassphrase(passphrase string, keyLen int) []byte {
-	return pbkdf2.Key([]byte(passphrase), []byte(Salt), IterationCount, keyLen, sha1.New)
+	return GenerateKeyFromBytes([]byte(passphrase), keyLen)
 }
 
 func GenerateKeyFromPassphraseAndCopy(passphrase string, keyLen int, key []byte) {
-	tmpKey := GenerateKeyFromPassphrase(passphrase, keyLen)
-	subtle.ConstantTimeCopy(1, key[:], tmpKey[:])
+	GenerateKeyFromBytesAndCopy([]byte(passphrase), keyLen, key)
 	return
 }
