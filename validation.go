@@ -144,7 +144,7 @@ func (vtor *KeyValidator) computeWithSaltAndNonce(salt []byte, nonce ...uint32) 
 		mac = hmac.New(vtor.hash.New, vtor.key)
 	}
 	mac.Reset()
-	kv.salt = vtor.salt
+	kv.salt = salt
 	mac.Write(kv.salt)
 	if len(nonce) > 0 {
 		var b [4]byte
