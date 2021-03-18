@@ -136,6 +136,10 @@ func TestEncryptedIP(t *testing.T) {
 				t.Fatalf("decryption error: %s for IP %s", err, c.String())
 			} else if !bytes.Equal(dec, c) {
 				t.Errorf("expected %s have %s:", c.String(), dec.String())
+			} else if decStr, err := DecryptedIPString(key, enc.String()); err != nil {
+				t.Fatalf("decryption error: %s for string IP %s", err, c.String())
+			} else if c.String() != decStr {
+				t.Errorf("expected %s have %s:", c.String(), decStr)
 			}
 		}
 	})
@@ -292,9 +296,7 @@ func TestDecryptIPInPlace(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	passphrase := "justalonglongpasswordforanonymization"
-	var key [16]byte
-	GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
-	ipCipher, err := NewCipher(key[:])
+	ipCipher, err := NewPassphraseCipher(passphrase)
 	if err != nil {
 		t.Errorf("ipcipher error: %s ", err)
 	}
@@ -313,6 +315,12 @@ func TestEncrypt(t *testing.T) {
 			ipCipher.Decrypt(dec, enc)
 			if !bytes.Equal(dec, c) {
 				t.Errorf("expected %s have %s:", c.String(), dec.String())
+			}
+			var decStr string
+			ipCipher.Encrypt(enc, c)
+			decStr = ipCipher.(*Ipcipher).DecryptStr(enc.String())
+			if decStr != c.String() {
+				t.Errorf("expected %s have %s:", c.String(), decStr)
 			}
 		}
 	})

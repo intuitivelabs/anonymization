@@ -128,6 +128,14 @@ func NewKeyValidator(cryptoHash crypto.Hash, key []byte, length int, salt string
 	return vtor, nil
 }
 
+// NewPassphraseValidator returns a new key validator for a key generated from the passphrase.
+// Validation checksum is generated using HMAC(SHA256) with the key over the salt
+func NewPassphraseValidator(passphrase string, length int, salt string) (Validator, error) {
+	var key [AuthenticationKeyLen]byte
+	GenerateKeyFromPassphraseAndCopy(passphrase, AuthenticationKeyLen, key[:])
+	return NewKeyValidator(crypto.SHA256, key[:], length, salt, NonceNone, false, true)
+}
+
 // computeWithNonce computes the validation code using an optional nonce specified as parameter
 func (vtor *KeyValidator) computeWithSaltAndNonce(salt []byte, nonce ...uint32) (kv KeyValidation) {
 	mac := vtor.mac

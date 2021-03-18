@@ -40,10 +40,16 @@ func NewCipher(key []byte) (cipher.Block, error) {
 		break
 	}
 	var a [BlockSize]byte
-	for i,v := range key {
+	for i, v := range key {
 		a[i] = v
 	}
 	return &Ipcipher{a}, nil
+}
+
+func NewPassphraseCipher(passphrase string) (cipher.Block, error) {
+	var key [EncryptionKeyLen]byte
+	GenerateKeyFromPassphraseAndCopy(passphrase, EncryptionKeyLen, key[:])
+	return NewCipher(key[:])
 }
 
 func (c *Ipcipher) Encrypt(dst, src []byte) {
@@ -55,6 +61,14 @@ func (c *Ipcipher) Encrypt(dst, src []byte) {
 
 func (c *Ipcipher) Decrypt(dst, src []byte) {
 	if err := DecryptIP(c.key, dst, src); err != nil {
+		panic("anonymization: decrypt error")
+	}
+	return
+}
+
+func (c *Ipcipher) DecryptStr(src string) (dst string) {
+	var err error
+	if dst, err = DecryptedIPString(c.key, src); err != nil {
 		panic("anonymization: decrypt error")
 	}
 	return
@@ -243,6 +257,23 @@ func DecryptedIP(key [BlockSize]byte, encryptedIP net.IP) (IP net.IP, err error)
 		IP, err = decryptedIPv6(key, encryptedIP)
 	} else {
 		err = ErrBrokenIP
+	}
+	return
+}
+
+func DecryptedIPString(key [BlockSize]byte, encrypted string) (decrypted string, err error) {
+	decrypted = ""
+	var IP net.IP
+	encryptedIP := net.ParseIP(encrypted)
+	if encryptedIP.To4() != nil {
+		IP, err = decryptedIPv4(key, encryptedIP)
+	} else if encryptedIP.To16() != nil {
+		IP, err = decryptedIPv6(key, encryptedIP)
+	} else {
+		err = ErrBrokenIP
+	}
+	if err == nil {
+		decrypted = IP.String()
 	}
 	return
 }
