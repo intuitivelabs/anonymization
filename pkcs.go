@@ -13,6 +13,9 @@ type Block struct {
 }
 
 func isPadded(buf []byte, pad byte) bool {
+	if pad == 0 {
+		return false
+	}
 	for _, v := range buf {
 		if v != pad {
 			return false
@@ -38,7 +41,7 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 	l := len(buf)
 	padLen, err := PKCSPadLen(l, size)
 	if err != nil {
-		return nil, fmt.Errorf("could noot compute pad len: %w", err)
+		return nil, fmt.Errorf("could not compute pad len: %w", err)
 	}
 	n := l + padLen
 	// reallocate slice if needed
@@ -47,9 +50,8 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 		copy(s, buf)
 		buf = s
 	}
-	buf = buf[0:n]
 	for i := 0; i < padLen; i++ {
-		buf[n+i] = byte(padLen)
+		buf[l+i] = byte(padLen)
 	}
 	return buf, nil
 }
@@ -58,27 +60,31 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 // See https://tools.ietf.org/html/rfc2315#section-10.3 for details
 func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 	if size > 255 {
-		return nil, fmt.Errorf("size %d not supported by padding algorithm:", size)
+		return nil, fmt.Errorf("block size %d not supported by padding algorithm:", size)
 	}
-	//tmp := dst[:1]
-	noBlocks := len(buf) / size
+	l := len(buf)
+	if l%size != 0 {
+		return nil, fmt.Errorf("buffer length %d is not a multiple of block size %d:", l, size)
+	}
+	noBlocks := l / size
 	blocks := make([]Block, noBlocks)
 	for j, bi := 0, 0; bi < noBlocks; j, bi = j+1, bi+1 {
 		offs := bi * size
 		if bi+1 < noBlocks {
 			if ok := isPadded(buf[(bi+1)*size:(bi+2)*size], byte(size)); ok {
-				//tmp = append(tmp, buf[offs:(bi+1)*size]...)
 				blocks[j] = Block{offs, size}
 				bi++
 				continue
 			}
 		}
 		pad := buf[offs+size-1]
-		if ok := isPadded(buf[offs+size-int(pad):offs+size], byte(size)); ok {
-			//tmp = append(tmp, buf[offs:offs+size-int(pad)]...)
+		if pad == 0 {
+			return nil, fmt.Errorf("broken padding byte %x starting at offset %d", buf[offs+size-1], offs+size-1)
+		}
+		if ok := isPadded(buf[offs+size-int(pad):offs+size], pad); ok {
 			blocks[j] = Block{offs, size - int(pad)}
 		} else {
-			return nil, fmt.Errorf("broken padding byte %x starting at offset: %d",
+			return nil, fmt.Errorf("broken padding byte %x starting at offset %d",
 				buf[offs+size-int(pad)], offs+size-int(pad))
 		}
 	}

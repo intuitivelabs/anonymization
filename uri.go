@@ -45,7 +45,7 @@ func NewUriCBC(iv, userKey, hostKey []byte) *UriCBC {
 	if block, err := aes.NewCipher(hostKey); err != nil {
 		panic(err)
 	} else {
-		uriCBC.User.Init(iv, hostKey, block)
+		uriCBC.Host.Init(iv, hostKey, block)
 	}
 	return &uriCBC
 }
