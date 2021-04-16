@@ -3,6 +3,7 @@ package anonymization
 import (
 	"bufio"
 	"crypto"
+	"encoding/hex"
 	"fmt"
 	"github.com/google/uuid"
 	"os"
@@ -216,6 +217,38 @@ func TestKeyValidationCode(t *testing.T) {
 					if !validator.Validate(c) {
 						t.Errorf("key is not valid")
 					}
+				}
+			}
+		}
+	})
+}
+
+func TestHexDecoder(t *testing.T) {
+	key := [...]byte{
+		74,
+		170,
+		234,
+		9,
+		98,
+		105,
+		110,
+		92,
+		187,
+		206,
+		133,
+		246,
+		34,
+		130,
+		175,
+		176,
+	}
+	t.Run("decode hex key", func(t *testing.T) {
+		if decoded, err := hex.DecodeString("4aaaea0962696e5cbbce85f62282afb0"); err != nil {
+			t.Fatalf("hex decoder error %s", err)
+		} else {
+			for i, d := range decoded {
+				if key[i] != d {
+					t.Fatalf("expected %d got %d", key[i], d)
 				}
 			}
 		}
