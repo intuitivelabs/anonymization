@@ -1,5 +1,7 @@
 github.com/google/uuid v1.2.0 h1:qJYtXnJRWmpe7m/3XlyhrsLrEURqHRM2kxzoxXqyUDs=
 github.com/google/uuid v1.2.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/intuitivelabs/bytescase v1.0.1 h1:As9FoZOyQuaQa4StsNHGlMbweAf3rZ5Ku2U1QsXauhA=
+github.com/intuitivelabs/bytescase v1.0.1/go.mod h1:Gr+B79bV8+mDKvYr4hja6qPVHtYG4Knem0K8gzZKHHU=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201221222832-e8c1af2d7e80 h1:KPTe89jn6irmLAaAPfC79maEX5jHpdELZpPj0Tp8lcw=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201221222832-e8c1af2d7e80/go.mod h1:1Tbk2GMxSflaUSwrQaFnMrg1VvTDM4JO3Jbh7RzPjSs=
 github.com/intuitivelabs/ipcrypt v0.0.0-20201222150316-123c6c9e333e h1:YVGcZgvVg/JJuuq++oRQ+DSFOlIYNXfZQLSmrGTqrNc=
@@ -10,6 +12,8 @@ github.com/intuitivelabs/ipcrypt v1.0.1-0.20210219130456-3e56a3a73040 h1:1Nwr/Qo
 github.com/intuitivelabs/ipcrypt v1.0.1-0.20210219130456-3e56a3a73040/go.mod h1:1Tbk2GMxSflaUSwrQaFnMrg1VvTDM4JO3Jbh7RzPjSs=
 github.com/intuitivelabs/ipcrypt v1.1.0 h1:nLWT//mwecB7JC2/e7XSHasjRetJVqBnOCYrNW6WmQ4=
 github.com/intuitivelabs/ipcrypt v1.1.0/go.mod h1:1Tbk2GMxSflaUSwrQaFnMrg1VvTDM4JO3Jbh7RzPjSs=
+github.com/intuitivelabs/sipsp v1.0.1 h1:EjGSg+CH2Tf6GoXfRYnouvXe/5bVxxrjNUCD1o1H0X8=
+github.com/intuitivelabs/sipsp v1.0.1/go.mod h1:cQ5p5hsd+DeKu1XbCH7f7NN5wH2b8SOwuJBfk6VC0ms=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad h1:DN0cp81fZ3njFcrLCytUHRSUkqBjfTo4Tx9RJTWs0EY=
 golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
