@@ -12,16 +12,18 @@ import (
 
 var (
 	// controls the debug messages for tests
-	debugTestOn bool = true
+	debugTestOn bool = false
 )
 
 func debugTest(w *bufio.Writer, format string, args ...interface{}) {
 	if debugTestOn {
 		fmt.Fprintf(w, format, args...)
+		w.Flush()
 	}
 }
 
 func TestKeyValidationCode(t *testing.T) {
+	debugTestOn = false
 	stdout := bufio.NewWriter(os.Stdout)
 	passphrases := [...]string{
 		"foobar",
@@ -221,9 +223,12 @@ func TestKeyValidationCode(t *testing.T) {
 			}
 		}
 	})
+	debugTestOn = false
 }
 
 func TestHexDecoder(t *testing.T) {
+	debugTestOn = false
+	stdout := bufio.NewWriter(os.Stdout)
 	key := [...]byte{
 		74,
 		170,
@@ -253,6 +258,7 @@ func TestHexDecoder(t *testing.T) {
 			}
 		}
 	})
+	debugTestOn = false
 }
 
 func BenchmarkKeyValidationCode(b *testing.B) {
