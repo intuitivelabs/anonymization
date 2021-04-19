@@ -1,9 +1,7 @@
 package anonymization
 
 import (
-	"bufio"
 	"bytes"
-	"os"
 	"testing"
 )
 
@@ -13,8 +11,8 @@ type BlockPair struct {
 }
 
 func TestPKCSPad(t *testing.T) {
-	debugTestOn = true
-	stdout := bufio.NewWriter(os.Stdout)
+	df := DbgOn()
+	defer DbgRestore(df)
 	oneBlockPairs := [...]BlockPair{
 		{
 			padded:   []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -109,6 +107,18 @@ func TestPKCSPad(t *testing.T) {
 			}
 		}
 	})
+	t.Run("only one block padding, preallocated memory", func(t *testing.T) {
+		var mem []byte
+		for i, pair := range oneBlockPairs {
+			mem = bytes.Repeat([]byte{0}, 32)
+			pair.unpadded = mem[:15-i]
+			if p, err := PKCSPad(pair.unpadded, 16); err != nil {
+				t.Fatalf("padding error: %s", err)
+			} else if !bytes.Equal(p[0:16], pair.padded) {
+				t.Fatalf("expected %v (len: %d) got %v (len: %d)", pair.padded, len(pair.padded), p[0:16], len(pair.padded))
+			}
+		}
+	})
 	t.Run("two block un-padding", func(t *testing.T) {
 		for _, pair := range twoBlockPairs {
 			if u, err := PKCSUnpad(pair.padded, 16); err != nil {
@@ -128,13 +138,11 @@ func TestPKCSPad(t *testing.T) {
 		}
 	})
 	t.Run("broken padding", func(t *testing.T) {
-
 		for _, b := range broken {
-			debugTest(stdout, "block: %v\n", b)
+			Dbg("block: %v\n", b)
 			if _, err := PKCSUnpad(b, 16); err == nil {
 				t.Fatalf("expecting error while unpadding %v", b)
 			}
 		}
 	})
-	debugTestOn = false
 }
