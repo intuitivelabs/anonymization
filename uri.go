@@ -247,18 +247,22 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
-	var (
-		user []byte
-		host []byte
-		offs int = 0
-	)
 	blockSize := uriCBC.User.Decrypter.BlockSize()
 	// copy the SIP scheme
-	_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
-	offs = int(uri.Scheme.Len)
+	offs := int(uri.copyScheme(dst, src))
 	if uri.User.Len > 0 {
-		dUser := dst[offs : offs+int(uri.User.Len)]
-		uriCBC.User.Decrypter.CryptBlocks(dUser, src[uri.User.Offs:uri.User.Offs+uri.User.Len])
+		dPf := sipsp.PField{
+			Offs: sipsp.OffsT(offs),
+			Len:  uri.User.Len,
+		}
+		dUser := dPf.Get(dst)
+		//dUser := dst[offs : offs+int(uri.User.Len)]
+		pf := sipsp.PField{
+			Offs: uri.User.Offs,
+			Len:  uri.User.Len,
+		}
+		user := pf.Get(src)
+		uriCBC.User.Decrypter.CryptBlocks(dUser, user)
 		Dbg("decrypted user part (padded): %v\n", dUser)
 		if user, err = PKCSUnpad(dUser, blockSize); err != nil {
 			return fmt.Errorf("cannot decrypt URI's user part: %w", err)
@@ -273,9 +277,18 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 		offs++
 		Dbg("len(dst[offs:]): %d\n", len(dst[offs:]))
 	}
-	dHost := dst[offs : offs+int(uri.Host.Len)]
+	dPf := sipsp.PField{
+		Offs: sipsp.OffsT(offs),
+		Len:  uri.Host.Len,
+	}
+	dHost := dPf.Get(dst)
+	pf := sipsp.PField{
+		Offs: uri.Host.Offs,
+		Len:  uri.Host.Len,
+	}
+	host := pf.Get(src)
 	Dbg("host offs: %d host len : %d\n", int(uri.Host.Offs), int(uri.Host.Len))
-	uriCBC.Host.Decrypter.CryptBlocks(dHost, src[uri.Host.Offs:uri.Host.Offs+uri.Host.Len])
+	uriCBC.Host.Decrypter.CryptBlocks(dHost, host)
 	Dbg("decrypted host part (padded): %v\n", dHost)
 	if host, err = PKCSUnpad(dHost, blockSize); err != nil {
 		return fmt.Errorf("cannot decrypt URI's host part: %w", err)
