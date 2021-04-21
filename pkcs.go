@@ -7,6 +7,11 @@ import (
 //This file contains functionality for padding and unpadding (removal of padding) of cryptographic blocks
 // See https://tools.ietf.org/html/rfc2315#section-10.3 for details
 
+const (
+	// at most 1024 blocks of 16 bytes are supported
+	maxBlocks = 1024
+)
+
 type Block struct {
 	Offs int
 	Len  int
@@ -64,6 +69,9 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 	df := DbgOn()
 	defer DbgRestore(df)
+	var (
+		blocks [maxBlocks]Block
+	)
 	if size > 255 {
 		return nil, fmt.Errorf("block size %d not supported by padding algorithm:", size)
 	}
@@ -72,7 +80,9 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 		return nil, fmt.Errorf("buffer length %d is not a multiple of block size %d:", l, size)
 	}
 	noBlocks := l / size
-	blocks := make([]Block, noBlocks)
+	if len(blocks) < noBlocks {
+		return nil, fmt.Errorf("buffer is too large: %d bytes (%d blocks of %d bytes):", l, noBlocks, size)
+	}
 	for j, bi := 0, 0; bi < noBlocks; j, bi = j+1, bi+1 {
 		offs := bi * size
 		if bi+1 < noBlocks {
