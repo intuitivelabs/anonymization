@@ -82,7 +82,7 @@ func TestCBCEncrypt(t *testing.T) {
 		}
 	}
 	// tests
-	t.Run("encrypt / decrypt w/ memory allocation", func(t *testing.T) {
+	t.Run("encrypt and decrypt using dynamic memory", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -101,19 +101,14 @@ func TestCBCEncrypt(t *testing.T) {
 				Dbg("decrypted URI: %v", plaintxt)
 				t.Fatalf("cannot decrypt URI %s: %s", uris[i], err.Error())
 			}
-			if au.User.Len > 0 {
-				Dbg("decrypted URI: %v %s%s@%s", plaintxt,
-					string(plaintxt[au.Scheme.Offs:au.Scheme.Offs+au.Scheme.Len]),
-					string(plaintxt[au.User.Offs:au.User.Offs+au.User.Len]),
-					string(plaintxt[au.Host.Offs:au.Host.Offs+au.Host.Len]))
-			} else {
-				Dbg("decrypted URI: %v %s%s", plaintxt,
-					string(plaintxt[au.Scheme.Offs:au.Scheme.Offs+au.Scheme.Len]),
-					string(plaintxt[au.Host.Offs:au.Host.Offs+au.Host.Len]))
+			Dbg("decrypted URI: %v %s", plaintxt, string((*sipsp.PsipURI)(&au).Flat(plaintxt)))
+			uri := sipsp.PsipURI(au)
+			if !bytes.Equal(uris[i], uri.Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(uri.Flat(plaintxt)))
 			}
 		}
 	})
-	t.Run("encrypt / decrypt w/ static memory", func(t *testing.T) {
+	t.Run("encrypt and decrypt using static memory", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -132,15 +127,10 @@ func TestCBCEncrypt(t *testing.T) {
 				Dbg("decrypted URI: %v", plaintxt)
 				t.Fatalf("cannot decrypt URI %s: %s", uris[i], err.Error())
 			}
-			if au.User.Len > 0 {
-				Dbg("decrypted URI: %v %s%s@%s", plaintxt,
-					string(plaintxt[au.Scheme.Offs:au.Scheme.Offs+au.Scheme.Len]),
-					string(plaintxt[au.User.Offs:au.User.Offs+au.User.Len]),
-					string(plaintxt[au.Host.Offs:au.Host.Offs+au.Host.Len]))
-			} else {
-				Dbg("decrypted URI: %v %s%s", plaintxt,
-					string(plaintxt[au.Scheme.Offs:au.Scheme.Offs+au.Scheme.Len]),
-					string(plaintxt[au.Host.Offs:au.Host.Offs+au.Host.Len]))
+			Dbg("decrypted URI: %v %s", plaintxt, string((*sipsp.PsipURI)(&au).Flat(plaintxt)))
+			uri := sipsp.PsipURI(au)
+			if !bytes.Equal(uris[i], uri.Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(uri.Flat(plaintxt)))
 			}
 		}
 	})
