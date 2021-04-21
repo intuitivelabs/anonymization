@@ -196,6 +196,7 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		Dbg("padded eUser: %v\n", eUser)
 		uri.User.Offs = sipsp.OffsT(offs)
 		uri.User.Len = sipsp.OffsT(len(eUser))
+		uri.Pass.Offs, uri.Pass.Len = 0, 0
 		// 2. encrypt (user+pass)
 		uriCBC.User.Encrypter.CryptBlocks(eUser, eUser)
 		Dbg("encrypted eUser: %v\n", eUser)
@@ -215,6 +216,9 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		Dbg("padded eHost: %v\n", eHost)
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(len(eHost))
+		uri.Headers.Offs, uri.Headers.Len = 0, 0
+		uri.Params.Offs, uri.Params.Len = 0, 0
+		uri.Port.Offs, uri.Port.Len = 0, 0
 		// 4. encrypt host+port+params+header
 		uriCBC.Host.Encrypter.CryptBlocks(eHost, eHost)
 		Dbg("encrypted eHost: %v (offs: %d len: %d)\n", eHost, int(uri.Host.Offs), int(uri.Host.Len))
@@ -248,6 +252,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 		l := len(user)
 		uri.User.Offs = sipsp.OffsT(offs)
 		uri.User.Len = sipsp.OffsT(l)
+		uri.Pass.Offs, uri.Pass.Len = 0, 0
 		offs = int(uri.User.Offs + uri.User.Len)
 		dst[offs] = '@'
 		offs++
@@ -263,6 +268,9 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	Dbg("decrypted host part (un-padded): %v %s\n", host, string(host))
 	uri.Host.Offs = sipsp.OffsT(offs)
 	uri.Host.Len = sipsp.OffsT(len(host))
+	uri.Headers.Offs, uri.Headers.Len = 0, 0
+	uri.Params.Offs, uri.Params.Len = 0, 0
+	uri.Port.Offs, uri.Port.Len = 0, 0
 	return nil
 }
 
