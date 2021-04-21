@@ -3,9 +3,25 @@ package anonymization
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/base32"
 	"fmt"
 
 	"github.com/intuitivelabs/sipsp"
+)
+
+const (
+	// maximum size allowed for an SIP URI is 2KB; with padding this results in at most 4KB
+	maxBufSize int = 1 << 12
+	// padding character used in base32 encoding
+	pad rune = '-'
+)
+
+// static buffers for encryption/decryption
+var (
+	encryptBuf [maxBufSize]byte
+	decryptBuf [maxBufSize]byte
+	encodeBuf  [maxBufSize]byte
+	decodeBuf  [maxBufSize]byte
 )
 
 type BlockModeCipher struct {
@@ -32,9 +48,14 @@ func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
 }
 
 var (
+	// URI CBC cipher
 	uriCBC = UriCBC{}
 	//uriGCM = UriGCM{}
 )
+
+func NewEncoding() *base32.Encoding {
+	return base32.HexEncoding.WithPadding(pad)
+}
 
 func NewUriCBC(iv, userKey, hostKey []byte) *UriCBC {
 	if block, err := aes.NewCipher(userKey); err != nil {
@@ -50,7 +71,39 @@ func NewUriCBC(iv, userKey, hostKey []byte) *UriCBC {
 	return &uriCBC
 }
 
+func EncryptBuf() []byte {
+	return encryptBuf[:]
+}
+
+func DecryptBuf() []byte {
+	return decryptBuf[:]
+}
+
+func EncodeBuf() []byte {
+	return encodeBuf[:]
+}
+
+func DecodeBuf() []byte {
+	return decodeBuf[:]
+}
+
 type AnonymURI sipsp.PsipURI
+
+func (uri AnonymURI) String(buf []byte) string {
+	scheme := string(buf[uri.Scheme.Offs : uri.Scheme.Offs+uri.Scheme.Len])
+	user := string(buf[uri.User.Offs : uri.User.Offs+uri.User.Len])
+	pass := string(buf[uri.Pass.Offs : uri.Pass.Offs+uri.Pass.Len])
+	host := string(buf[uri.Host.Offs : uri.Host.Offs+uri.Host.Len])
+	port := string(buf[uri.Port.Offs : uri.Port.Offs+uri.Port.Len])
+	params := string(buf[uri.Params.Offs : uri.Params.Offs+uri.Params.Len])
+	headers := string(buf[uri.Headers.Offs : uri.Headers.Offs+uri.Headers.Len])
+	s := scheme
+	if uri.User.Len > 0 {
+		s += user + pass + "@"
+	}
+	s += host + port + params + headers
+	return s
+}
 
 // PKCSPaddedLen computes the length of URI with the userpart and host padded to a multiple of size.
 // Scheme and separator '@' are not padded.
@@ -75,8 +128,35 @@ func (uri *AnonymURI) PKCSPaddedLen(size int) (int, error) {
 	return uLen + hLen + int(uri.Scheme.Len) + sepLen, nil
 }
 
-// CBCEncryptURI encrypts the user info and host part of uri preserving the generic URI format userinfo@hostinfo.
-// The encrypted URI for user@host is AES_CBC_ENCRYPT(user)@AES_CBC_ENCRYPT(host)
+func (uri AnonymURI) copyScheme(dst, src []byte) sipsp.OffsT {
+	_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
+	return uri.Scheme.Len
+}
+
+func (uri AnonymURI) userPassEnd() sipsp.OffsT {
+	end := uri.Pass.Offs + uri.Pass.Len
+	if end == 0 {
+		end = uri.User.Offs + uri.User.Len
+	}
+	return end
+}
+
+func (uri AnonymURI) hostPortParamsHeadersEnd() sipsp.OffsT {
+	end := uri.Headers.Offs + uri.Headers.Len
+	if end == 0 {
+		end = uri.Params.Offs + uri.Params.Len
+	}
+	if end == 0 {
+		end = uri.Port.Offs + uri.Port.Len
+	}
+	if end == 0 {
+		end = uri.Host.Offs + uri.Host.Len
+	}
+	return end
+}
+
+// CBCEncrypt encrypts the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
+// The encrypted URI for sip:user@host is sip:AES_CBC_ENCRYPT(user)@AES_CBC_ENCRYPT(host)
 func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -86,7 +166,7 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		offs         int
 	)
 	blockSize := uriCBC.User.Encrypter.BlockSize()
-	// 0. check dst len
+	// 1. check dst len
 	if paddedLen, err = uri.PKCSPaddedLen(blockSize); err != nil {
 		return fmt.Errorf("cannot encrypt URI: %w", err)
 	}
@@ -94,14 +174,10 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		return fmt.Errorf("buffer for encrypted URI is too small: %d bytes (need %d bytes)",
 			len(dst), paddedLen+1)
 	}
-	// append sip scheme
-	_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
-	offs = int(uri.Scheme.Len)
-	// 1. copy & pad user+pass
-	userEnd := uri.Pass.Offs + uri.Pass.Len
-	if userEnd == 0 {
-		userEnd = uri.User.Offs + uri.User.Len
-	}
+	// 2. copy sip scheme
+	offs = int(uri.copyScheme(dst, src))
+	// 3. copy, pad & encrypt user+pass
+	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
 		_ = copy(dst[offs:], src[uri.User.Offs:userEnd])
 		eUser = dst[offs : offs+int(userEnd-uri.User.Offs)]
@@ -119,17 +195,8 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		dst[offs] = '@'
 		offs++
 	}
-	// 3. copy & pad host+port+params+header
-	hostEnd := uri.Headers.Offs + uri.Headers.Len
-	if hostEnd == 0 {
-		hostEnd = uri.Params.Offs + uri.Params.Len
-	}
-	if hostEnd == 0 {
-		hostEnd = uri.Port.Offs + uri.Port.Len
-	}
-	if hostEnd == 0 {
-		hostEnd = uri.Host.Offs + uri.Host.Len
-	}
+	// 4. copy, pad & encrypt host+port+params+header
+	hostEnd := uri.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
 		_ = copy(dst[offs:], src[uri.Host.Offs:hostEnd])
 		eHost = dst[offs : offs+int(hostEnd-uri.Host.Offs)]
@@ -147,9 +214,8 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 	return nil
 }
 
-// CBCDecryptURI decrypts the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
-// The decrypted URI for sip:user@host is sip:AES_CBC_DECRYPT(user)@AES_CBC_DECRYPT(host)
-// dst should be least uri.User.Len+uri.Host.Len bytes long
+// CBCDecrypt decrypts the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
+// The decrypted URI for sip:user@host is sip:AES_CBC_DECRYPT(userinfo)@AES_CBC_DECRYPT(hostinfo)
 func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -159,7 +225,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 		offs int = 0
 	)
 	blockSize := uriCBC.User.Decrypter.BlockSize()
-	// append the SIP scheme
+	// copy the SIP scheme
 	_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
 	offs = int(uri.Scheme.Len)
 	if uri.User.Len > 0 {
@@ -188,5 +254,133 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	Dbg("decrypted host part (un-padded): %v %s\n", host, string(host))
 	uri.Host.Offs = sipsp.OffsT(offs)
 	uri.Host.Len = sipsp.OffsT(len(host))
+	return nil
+}
+
+func (uri AnonymURI) EncodedLen(buf []byte) (l int) {
+	l = int(uri.Scheme.Len)
+	codec := NewEncoding()
+	userEnd := uri.userPassEnd()
+	if userEnd > 0 {
+		l += codec.EncodedLen(len(buf[uri.User.Offs:userEnd]))
+		// add 1 byte for '@'
+		l++
+	}
+	hostEnd := uri.hostPortParamsHeadersEnd()
+	if hostEnd > 0 {
+		l += codec.EncodedLen(len(buf[uri.Host.Offs:hostEnd]))
+	}
+	return l
+}
+
+func (uri AnonymURI) DecodedLen(buf []byte) (l int) {
+	l = int(uri.Scheme.Len)
+	codec := NewEncoding()
+	userEnd := uri.userPassEnd()
+	if userEnd > 0 {
+		l += codec.DecodedLen(len(buf[uri.User.Offs:userEnd]))
+		// add 1 byte for '@'
+		l++
+	}
+	hostEnd := uri.hostPortParamsHeadersEnd()
+	if hostEnd > 0 {
+		l += codec.DecodedLen(len(buf[uri.Host.Offs:hostEnd]))
+	}
+	return l
+}
+
+// Encode encodes using base32 the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
+// The encoded URI for sip:user@host is sip:base32(userinfo)@base32(hostinfo)
+func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	var (
+		offs int = 0
+	)
+	codec := NewEncoding()
+	// 1. check dst len
+	if len(dst) < uri.EncodedLen(src) {
+		return fmt.Errorf("\"dst\" buffer too small for encoded URI (%d bytes required and %d bytes available)",
+			len(dst), uri.EncodedLen(src))
+	}
+	// 2. copy sip scheme
+	offs = int(uri.copyScheme(dst, src))
+	// 3. encode user+pass
+	userEnd := uri.userPassEnd()
+	if userEnd > 0 {
+		user := src[uri.User.Offs:int(userEnd)]
+		Dbg("user: %v\n", user)
+		eUser := dst[uri.User.Offs : int(uri.User.Offs)+codec.EncodedLen(len(user))]
+		codec.Encode(eUser, user)
+		uri.User.Len = sipsp.OffsT(len(eUser))
+		uri.Pass.Offs, uri.Pass.Len = 0, 0
+		Dbg("encoded eUser: %v\n", eUser)
+		offs = int(uri.User.Offs + uri.User.Len)
+		// write '@' into dst
+		dst[offs] = '@'
+		offs++
+	}
+	// 4. encode host+port+params+header
+	hostEnd := uri.hostPortParamsHeadersEnd()
+	if hostEnd > 0 {
+		host := src[uri.Host.Offs:hostEnd]
+		Dbg("len(host): %d codec.EncodedLen(len(host)): %d\n", len(host), codec.EncodedLen(len(host)))
+		eHost := dst[offs : offs+codec.EncodedLen(len(host))]
+		codec.Encode(eHost, host)
+		uri.Headers.Offs, uri.Headers.Len = 0, 0
+		uri.Params.Offs, uri.Params.Len = 0, 0
+		uri.Port.Offs, uri.Port.Len = 0, 0
+		uri.Host.Offs = sipsp.OffsT(offs)
+		uri.Host.Len = sipsp.OffsT(len(eHost))
+		Dbg("encoded eHost: %v\n", eHost)
+	}
+	return nil
+}
+
+// Decode decodes using base32 the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
+// The decoded URI for sip:base32(userinfo)@base32(hostinfo) is sip:userinfo@hostinfo
+func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	var (
+		offs int = 0
+	)
+	codec := NewEncoding()
+	if len(dst) < uri.DecodedLen(src) {
+		return fmt.Errorf("\"dst\" buffer too small for decoded URI (%d bytes required and %d bytes available)",
+			len(dst), codec.DecodedLen(len(src)))
+	}
+	// copy the SIP scheme
+	offs = int(uri.copyScheme(dst, src))
+	// 3. encode user+pass
+	userEnd := uri.userPassEnd()
+	if userEnd > 0 {
+		user := src[uri.User.Offs:int(userEnd)]
+		Dbg("user: %v %s\n", user, string(user))
+		eUser := dst[uri.User.Offs : int(uri.User.Offs)+codec.DecodedLen(len(user))]
+		n, err := codec.Decode(eUser, user)
+		if err != nil {
+			return fmt.Errorf("error decoding URI user part: %w", err)
+		}
+		uri.User.Len = sipsp.OffsT(n)
+		Dbg("decoded eUser: %v\n", eUser[:n])
+		offs = int(uri.User.Offs + uri.User.Len)
+		// write '@' into dst
+		dst[offs] = '@'
+		offs++
+	}
+	// 4. encode host+port+params+header
+	hostEnd := uri.hostPortParamsHeadersEnd()
+	if hostEnd > 0 {
+		host := src[uri.Host.Offs:hostEnd]
+		eHost := dst[offs : offs+codec.DecodedLen(len(host))]
+		n, err := codec.Decode(eHost, host)
+		if err != nil {
+			return fmt.Errorf("error decoding URI host part: %w", err)
+		}
+		uri.Host.Offs = sipsp.OffsT(offs)
+		uri.Host.Len = sipsp.OffsT(n)
+		Dbg("encoded eHost: %v\n", eHost[:n])
+	}
 	return nil
 }
