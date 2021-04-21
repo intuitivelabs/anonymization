@@ -170,9 +170,8 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var (
-		paddedLen    int
-		eUser, eHost []byte
-		offs         int
+		paddedLen int
+		offs      int
 	)
 	blockSize := uriCBC.User.Encrypter.BlockSize()
 	// 1. check dst len
@@ -188,8 +187,15 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 	// 3. copy, pad & encrypt user+pass
 	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
-		_ = copy(dst[offs:], src[uri.User.Offs:userEnd])
-		eUser = dst[offs : offs+int(userEnd-uri.User.Offs)]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.User.Offs), int(userEnd))
+		user := pf.Get(src)
+		//_ = copy(dst[offs:], src[uri.User.Offs:userEnd])
+		_ = copy(dst[offs:], user)
+		ePf := sipsp.PField{}
+		ePf.Set(int(uri.User.Offs), int(userEnd))
+		//eUser := dst[offs : offs+int(userEnd-uri.User.Offs)]
+		eUser := ePf.Get(dst)
 		if eUser, err = PKCSPad(eUser, blockSize); err != nil {
 			return fmt.Errorf("cannot encrypt URI's user part: %w", err)
 		}
@@ -208,8 +214,17 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 	// 4. copy, pad & encrypt host+port+params+header
 	hostEnd := uri.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
-		_ = copy(dst[offs:], src[uri.Host.Offs:hostEnd])
-		eHost = dst[offs : offs+int(hostEnd-uri.Host.Offs)]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.Host.Offs), int(hostEnd))
+		host := pf.Get(src)
+		//_ = copy(dst[offs:], src[uri.Host.Offs:hostEnd])
+		_ = copy(dst[offs:], host)
+		ePf := sipsp.PField{
+			Offs: sipsp.OffsT(offs),
+			Len:  hostEnd - uri.Host.Offs,
+		}
+		eHost := ePf.Get(dst)
+		//eHost = dst[offs : offs+int(hostEnd-uri.Host.Offs)]
 		if eHost, err = PKCSPad(eHost, blockSize); err != nil {
 			return fmt.Errorf("cannot encrypt URI's host part: %w", err)
 		}
