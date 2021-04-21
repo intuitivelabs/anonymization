@@ -376,14 +376,21 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 	// 3. encode user+pass
 	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
-		user := src[uri.User.Offs:int(userEnd)]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.User.Offs), int(userEnd))
+		user := pf.Get(src)
 		Dbg("user: %v %s\n", user, string(user))
-		eUser := dst[uri.User.Offs : int(uri.User.Offs)+codec.DecodedLen(len(user))]
+		ePf := sipsp.PField{
+			Offs: uri.User.Offs,
+			Len:  sipsp.OffsT(codec.DecodedLen(len(user))),
+		}
+		eUser := ePf.Get(dst)
 		n, err := codec.Decode(eUser, user)
 		if err != nil {
 			return fmt.Errorf("error decoding URI user part: %w", err)
 		}
 		uri.User.Len = sipsp.OffsT(n)
+		uri.Pass.Offs, uri.Pass.Len = 0, 0
 		Dbg("decoded eUser: %v\n", eUser[:n])
 		offs = int(uri.User.Offs + uri.User.Len)
 		// write '@' into dst
@@ -393,12 +400,21 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 	// 4. encode host+port+params+header
 	hostEnd := uri.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
-		host := src[uri.Host.Offs:hostEnd]
-		eHost := dst[offs : offs+codec.DecodedLen(len(host))]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.Host.Offs), int(hostEnd))
+		host := pf.Get(src)
+		ePf := sipsp.PField{
+			Offs: sipsp.OffsT(offs),
+			Len:  sipsp.OffsT(codec.DecodedLen(len(host))),
+		}
+		eHost := ePf.Get(dst)
 		n, err := codec.Decode(eHost, host)
 		if err != nil {
 			return fmt.Errorf("error decoding URI host part: %w", err)
 		}
+		uri.Headers.Offs, uri.Headers.Len = 0, 0
+		uri.Params.Offs, uri.Params.Len = 0, 0
+		uri.Port.Offs, uri.Port.Len = 0, 0
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(n)
 		Dbg("encoded eHost: %v\n", eHost[:n])
