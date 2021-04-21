@@ -133,12 +133,21 @@ func (uri AnonymURI) copyScheme(dst, src []byte) sipsp.OffsT {
 	return uri.Scheme.Len
 }
 
+func (uri AnonymURI) userPassLen() sipsp.OffsT {
+	return uri.Pass.Len + uri.User.Len
+}
+
 func (uri AnonymURI) userPassEnd() sipsp.OffsT {
 	end := uri.Pass.Offs + uri.Pass.Len
 	if end == 0 {
 		end = uri.User.Offs + uri.User.Len
 	}
 	return end
+}
+
+func (uri AnonymURI) hostPortParamsHeadersLen() sipsp.OffsT {
+	return uri.Headers.Len + uri.Params.Len +
+		uri.Port.Len + uri.Host.Len
 }
 
 func (uri AnonymURI) hostPortParamsHeadersEnd() sipsp.OffsT {
@@ -308,9 +317,15 @@ func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
 	// 3. encode user+pass
 	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
-		user := src[uri.User.Offs:int(userEnd)]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.User.Offs), int(userEnd))
+		user := pf.Get(src)
 		Dbg("user: %v\n", user)
-		eUser := dst[uri.User.Offs : int(uri.User.Offs)+codec.EncodedLen(len(user))]
+		ePf := sipsp.PField{
+			Offs: uri.User.Offs,
+			Len:  sipsp.OffsT(codec.EncodedLen(len(user))),
+		}
+		eUser := ePf.Get(dst)
 		codec.Encode(eUser, user)
 		uri.User.Len = sipsp.OffsT(len(eUser))
 		uri.Pass.Offs, uri.Pass.Len = 0, 0
@@ -323,9 +338,15 @@ func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
 	// 4. encode host+port+params+header
 	hostEnd := uri.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
-		host := src[uri.Host.Offs:hostEnd]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.Host.Offs), int(hostEnd))
+		host := pf.Get(src)
 		Dbg("len(host): %d codec.EncodedLen(len(host)): %d\n", len(host), codec.EncodedLen(len(host)))
-		eHost := dst[offs : offs+codec.EncodedLen(len(host))]
+		ePf := sipsp.PField{
+			Offs: sipsp.OffsT(offs),
+			Len:  sipsp.OffsT(codec.EncodedLen(len(host))),
+		}
+		eHost := ePf.Get(dst)
 		codec.Encode(eHost, host)
 		uri.Headers.Offs, uri.Headers.Len = 0, 0
 		uri.Params.Offs, uri.Params.Len = 0, 0
