@@ -50,7 +50,7 @@ func TestBase32Codec(t *testing.T) {
 			Dbg("decoded URI: %s", string((*sipsp.PsipURI)(&au).Flat(decoded)))
 			uri := sipsp.PsipURI(au)
 			if !bytes.Equal(uris[i], uri.Flat(decoded)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(decoded))
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(uri.Flat(decoded)))
 			}
 		}
 	})
