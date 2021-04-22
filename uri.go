@@ -89,22 +89,6 @@ func DecodeBuf() []byte {
 
 type AnonymURI sipsp.PsipURI
 
-func (uri AnonymURI) String(buf []byte) string {
-	scheme := string(buf[uri.Scheme.Offs : uri.Scheme.Offs+uri.Scheme.Len])
-	user := string(buf[uri.User.Offs : uri.User.Offs+uri.User.Len])
-	pass := string(buf[uri.Pass.Offs : uri.Pass.Offs+uri.Pass.Len])
-	host := string(buf[uri.Host.Offs : uri.Host.Offs+uri.Host.Len])
-	port := string(buf[uri.Port.Offs : uri.Port.Offs+uri.Port.Len])
-	params := string(buf[uri.Params.Offs : uri.Params.Offs+uri.Params.Len])
-	headers := string(buf[uri.Headers.Offs : uri.Headers.Offs+uri.Headers.Len])
-	s := scheme
-	if uri.User.Len > 0 {
-		s += user + pass + "@"
-	}
-	s += host + port + params + headers
-	return s
-}
-
 // PKCSPaddedLen computes the length of URI with the userpart and host padded to a multiple of size.
 // Scheme and separator '@' are not padded.
 func (uri *AnonymURI) PKCSPaddedLen(size int) (int, error) {
@@ -129,7 +113,8 @@ func (uri *AnonymURI) PKCSPaddedLen(size int) (int, error) {
 }
 
 func (uri AnonymURI) copyScheme(dst, src []byte) sipsp.OffsT {
-	_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
+	//_ = copy(dst, src[uri.Scheme.Offs:uri.Scheme.Offs+uri.Scheme.Len])
+	_ = copy(dst, uri.Scheme.Get(src))
 	return uri.Scheme.Len
 }
 
