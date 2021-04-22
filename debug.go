@@ -51,7 +51,6 @@ func Dbg(format string, args ...interface{}) {
 		}()
 		n := runtime.Callers(2, callers[:])
 		if n == 0 {
-			fmt.Fprintf(stderr, format, args...)
 			return
 		}
 		frames := runtime.CallersFrames(callers[:])
