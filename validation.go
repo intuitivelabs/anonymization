@@ -189,12 +189,12 @@ func (vtor *KeyValidator) Validate(code string) (isValid bool) {
 		return false
 	}
 	if kvRemote.withNonce {
-		debug("compute with nonce:%d\n", kvRemote.nonce)
+		Dbg("compute with nonce:%d", kvRemote.nonce)
 		kvLocal = vtor.computeWithSaltAndNonce(kvRemote.salt, kvRemote.nonce)
 	} else {
 		kvLocal = vtor.computeWithSaltAndNonce(kvRemote.salt)
 	}
-	debug("remote: \"%s\" local: \"%s\"\n", code, kvLocal.String())
+	Dbg("remote: \"%s\" local: \"%s\"", code, kvLocal.String())
 	isValid = (subtle.ConstantTimeCompare([]byte(code), []byte(kvLocal.String())) == 1)
 	return
 }
@@ -207,7 +207,7 @@ func (vtor *KeyValidator) Code() string {
 // Format: hexadecimal_hmac:salt:[:base10_32bit_nonce]
 func (kv *KeyValidation) Bytes() []byte {
 	dstLen := hex.EncodedLen(len(kv.code)) + 1 + len(kv.salt) + 1 + MaxUintLen
-	debug("dstLen: %d\n", dstLen)
+	Dbg("dstLen: %d", dstLen)
 	dst := make([]byte, dstLen)
 	// hexadecimal encoding of the mac
 	n := hex.Encode(dst, kv.code)
@@ -221,7 +221,7 @@ func (kv *KeyValidation) Bytes() []byte {
 	length++
 	dst = append(dst[0:length], kv.salt...)
 	length += len(kv.salt)
-	debug("length: %d\n", length)
+	Dbg("length: %d", length)
 	if kv.withNonce {
 		dst = append(dst[0:length], ':')
 		length++
@@ -245,7 +245,7 @@ func registerHashFunctions() {
 func (kv *KeyValidation) parseCode(code string) (err error) {
 	err = nil
 	s := strings.Split(code, Separator)
-	debug("len:%d %q\n", len(s), s)
+	Dbg("len:%d %q", len(s), s)
 	kv.withNonce = false
 	switch len(s) {
 	case 2:
