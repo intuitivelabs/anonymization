@@ -11,7 +11,7 @@ type BlockPair struct {
 }
 
 func TestPKCSPad(t *testing.T) {
-	df := DbgOn()
+	df := DbgOff()
 	defer DbgRestore(df)
 	oneBlockPairs := [...]BlockPair{
 		{
@@ -139,7 +139,7 @@ func TestPKCSPad(t *testing.T) {
 	})
 	t.Run("broken padding", func(t *testing.T) {
 		for _, b := range broken {
-			Dbg("block: %v\n", b)
+			Dbg("block: %v", b)
 			if _, err := PKCSUnpad(b, 16); err == nil {
 				t.Fatalf("expecting error while unpadding %v", b)
 			}

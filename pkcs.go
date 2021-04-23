@@ -40,7 +40,7 @@ func PKCSPadLen(length, size int) (int, error) {
 // PKCSPad padds buf up to a length which is multiple of size. Size has to be less than 256.
 // See https://tools.ietf.org/html/rfc2315#section-10.3 for details
 func PKCSPad(buf []byte, size int) ([]byte, error) {
-	df := DbgOn()
+	df := DbgOff()
 	defer DbgRestore(df)
 	if size > 255 {
 		return nil, fmt.Errorf("size %d not supported by padding algorithm:", size)
@@ -67,7 +67,7 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 // PKCSUnpad removes the padding from buf returning an unpadded slice
 // See https://tools.ietf.org/html/rfc2315#section-10.3 for details
 func PKCSUnpad(buf []byte, size int) ([]byte, error) {
-	df := DbgOn()
+	df := DbgOff()
 	defer DbgRestore(df)
 	var (
 		blocks [maxBlocks]Block
@@ -92,7 +92,7 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 				continue
 			}
 		}
-		Dbg("buf: %v\n", buf)
+		Dbg("buf: %v", buf)
 		pad := buf[offs+size-1]
 		if pad == 0 {
 			return nil, fmt.Errorf("broken padding byte 0x%x (%d) starting at offset %d", pad, pad, offs+size-1)
