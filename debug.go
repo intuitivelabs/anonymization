@@ -6,22 +6,33 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 )
 
 var (
+	Debug string = "off"
+
 	stderr *bufio.Writer = nil
 
 	// full path or only file name (function name)?
 	fullPath = false
 
 	// control debugging only from this file
-	dbgAllowed = true
+	dbgAllowed bool
 
-	// control debugging by calling turnDbgOn() on a per function basis
+	// control debugging by calling DbgOn() on a per function basis
 	dbgFlag = false
 
 	callers [1]uintptr
 )
+
+func init() {
+	if strings.ToLower(Debug) == "on" {
+		dbgAllowed = true
+	} else {
+		dbgAllowed = false
+	}
+}
 
 func DbgOn() bool {
 	prev := dbgFlag
@@ -35,8 +46,10 @@ func DbgRestore(dbg bool) {
 	dbgFlag = dbg
 }
 
-func DbgOff() {
+func DbgOff() bool {
+	prev := dbgFlag
 	dbgFlag = false
+	return prev
 }
 
 func Dbg(format string, args ...interface{}) {
