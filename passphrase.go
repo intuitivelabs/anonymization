@@ -10,12 +10,9 @@
 package anonymization
 
 import (
-	"bufio"
 	"crypto/sha1"
 	"crypto/subtle"
-	"fmt"
 	"golang.org/x/crypto/pbkdf2"
-	"os"
 )
 
 const (
@@ -29,16 +26,7 @@ const (
 	ChecksumMinLength = 5
 	// maximum length of an base 10 32 bit integer in ASCII characters
 	MaxUintLen = 10
-	debugOn    = false
 )
-
-func debug(format string, args ...interface{}) {
-	stdout := bufio.NewWriter(os.Stdout)
-	defer stdout.Flush()
-	if debugOn {
-		fmt.Fprintf(stdout, format, args...)
-	}
-}
 
 func GenerateKeyFromBytes(bytes []byte, keyLen int) []byte {
 	return pbkdf2.Key(bytes, []byte(Salt), IterationCount, keyLen, sha1.New)
