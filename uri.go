@@ -132,6 +132,57 @@ func (uri AnonymURI) copyScheme(dst, src []byte) sipsp.OffsT {
 	return uri.Scheme.Len
 }
 
+// copyPortParamsHeaders copies "port;uri-parameter?headers" part of the SIP URI from src to dst; it properly
+// appends one of the separators [:;?] to dst. It assumes that PFields up to Host belong to dst and from Port on they belong to src.
+// It updates the Port, Params, Headers offsets
+func (uri *AnonymURI) copyPortParamsHeaders(dst, src []byte) sipsp.OffsT {
+	df := DbgOn()
+	defer DbgRestore(df)
+	pph := uri.PortParamsHeaders(src)
+	if pph == nil {
+		return 0
+	}
+	Dbg("pph: %v %s", pph, string(pph))
+	offs := int(uri.Host.Offs + uri.Host.Len)
+	if uri.Port.Offs > 0 && uri.Port.Len > 0 {
+		// write ':' into dst
+		dst[offs] = ':'
+	} else if uri.Params.Offs > 0 && uri.Params.Len > 0 {
+		// write ';' into dst
+		dst[offs] = ';'
+	} else if uri.Headers.Offs > 0 && uri.Headers.Len > 0 {
+		// write '?' into dst
+		dst[offs] = '?'
+	}
+	offs++
+	_ = copy(dst[offs:], pph)
+	Dbg("offs: %d dst[offs:]: %v", offs, dst[offs:])
+	if uri.Port.Offs > 0 {
+		uri.Port.Offs = sipsp.OffsT(offs)
+		Dbg("uri.Port.Offs: %d", offs)
+		offs += int(uri.Port.Len)
+	}
+	if uri.Params.Offs > 0 {
+		if uri.Port.Offs > 0 {
+			// increase offset past the `;` separator
+			offs++
+		}
+		uri.Params.Offs = sipsp.OffsT(offs)
+		Dbg("uri.Param.Offs: %d", offs)
+		offs += int(uri.Params.Len)
+	}
+	if uri.Headers.Offs > 0 {
+		if uri.Params.Offs > 0 || uri.Port.Offs > 0 {
+			// increase offset past the `?` separator
+			offs++
+		}
+		uri.Headers.Offs = sipsp.OffsT(offs)
+		Dbg("uri.Headers.Offs: %d", offs)
+		offs += int(uri.Headers.Len)
+	}
+	return 1 + uri.Port.Len + uri.Params.Len + uri.Headers.Len
+}
+
 func (uri AnonymURI) userPassLen() sipsp.OffsT {
 	return uri.Pass.Len + uri.User.Len
 }
@@ -142,6 +193,10 @@ func (uri AnonymURI) userPassEnd() sipsp.OffsT {
 		end = uri.User.Offs + uri.User.Len
 	}
 	return end
+}
+
+func (uri AnonymURI) hostEnd() sipsp.OffsT {
+	return uri.Host.Offs + uri.Host.Len
 }
 
 func (uri AnonymURI) hostPortParamsHeadersLen() sipsp.OffsT {
@@ -163,15 +218,71 @@ func (uri AnonymURI) hostPortParamsHeadersEnd() sipsp.OffsT {
 	return end
 }
 
-// CBCEncrypt encrypts the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
-// The encrypted URI for sip:user@host is sip:AES_CBC_ENCRYPT(user)@AES_CBC_ENCRYPT(host)
-func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
+func (uri AnonymURI) portParamsHeadersEnd() sipsp.OffsT {
+	df := DbgOn()
+	defer DbgRestore(df)
+	end := uri.Headers.Offs + uri.Headers.Len
+	if end != 0 {
+		Dbg("pph.end: %d, uri.Headers.Offs: %d", end, uri.Headers.Offs)
+		return end
+	}
+	end = uri.Params.Offs + uri.Params.Len
+	if end != 0 {
+		Dbg("pph end: %d, uri.Params.Offs: %d", end, uri.Params.Offs)
+		return end
+	}
+	end = uri.Port.Offs + uri.Port.Len
+	Dbg("pph end: %d, uri.Port.Offs: %d", end, uri.Port.Offs)
+	return end
+}
+
+func (uri AnonymURI) portParamsHeadersStart() sipsp.OffsT {
+	df := DbgOn()
+	defer DbgRestore(df)
+	start := uri.Port.Offs
+	if start != 0 {
+		Dbg("pph start: uri.Port.Offs: %d", start)
+		return start
+	}
+	start = uri.Params.Offs
+	if start != 0 {
+		Dbg("pph start: uri.Params.offs: %d", start)
+		return start
+	}
+	start = uri.Headers.Offs
+	Dbg("pph start: uri.Headers.offs: %d", start)
+	return start
+}
+
+// PortParamsHeaders returns a slice containing the "port;uri-parameter?headers" part of the SIP URI
+func (uri AnonymURI) PortParamsHeaders(buf []byte) []byte {
+	start := uri.portParamsHeadersStart()
+	end := uri.portParamsHeadersEnd()
+	// the `port` cannot have the offset 0 in an SIP URI
+	if start == 0 || end == 0 {
+		return nil
+	}
+	return buf[start:end]
+}
+
+// CBCEncrypt encrypts the user info and host part of uri preserving SIP URI format.
+// The general form of the SIP URI is:
+// sip:user:password@host:port;uri-parameters?headers
+// By default (opts not specified or opt[0] is false), the encrypted URI is:
+// sip:AES_CBC_ENCRYPT(user:password)@AES_CBC_ENCRYPT(host:port;uri-parameters?headers)
+// If opts[0] is true, the encrypted URI is:
+// sip:AES_CBC_ENCRYPT(user:password)@AES_CBC_ENCRYPT(host):port;uri-parameters?headers
+func (uri *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var (
+		onlyHost  bool = false
 		paddedLen int
 		offs      int
 	)
+	if len(opts) > 0 {
+		onlyHost = opts[0]
+	}
 	blockSize := UriCBC().User.Encrypter.BlockSize()
 	// 1. check dst len
 	if paddedLen, err = uri.PKCSPaddedLen(blockSize); err != nil {
@@ -189,11 +300,9 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.User.Offs), int(userEnd))
 		user := pf.Get(src)
-		//_ = copy(dst[offs:], src[uri.User.Offs:userEnd])
 		_ = copy(dst[offs:], user)
 		ePf := sipsp.PField{}
 		ePf.Set(int(uri.User.Offs), int(userEnd))
-		//eUser := dst[offs : offs+int(userEnd-uri.User.Offs)]
 		eUser := ePf.Get(dst)
 		if eUser, err = PKCSPad(eUser, blockSize); err != nil {
 			return fmt.Errorf("cannot encrypt URI's user part: %w", err)
@@ -210,32 +319,41 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 		dst[offs] = '@'
 		offs++
 	}
-	// 4. copy, pad & encrypt host+port+params+header
+	// 4. copy, pad & encrypt `host`+`port`+`params`+`header`
 	hostEnd := uri.hostPortParamsHeadersEnd()
+	if onlyHost {
+		// 4. copy, pad & encrypt `host`
+		hostEnd = uri.hostEnd()
+	}
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
 		host := pf.Get(src)
-		//_ = copy(dst[offs:], src[uri.Host.Offs:hostEnd])
 		_ = copy(dst[offs:], host)
 		ePf := sipsp.PField{
 			Offs: sipsp.OffsT(offs),
 			Len:  hostEnd - uri.Host.Offs,
 		}
 		eHost := ePf.Get(dst)
-		//eHost = dst[offs : offs+int(hostEnd-uri.Host.Offs)]
 		if eHost, err = PKCSPad(eHost, blockSize); err != nil {
 			return fmt.Errorf("cannot encrypt URI's host part: %w", err)
 		}
 		Dbg("padded eHost: %v", eHost)
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(len(eHost))
-		uri.Headers.Offs, uri.Headers.Len = 0, 0
-		uri.Params.Offs, uri.Params.Len = 0, 0
-		uri.Port.Offs, uri.Port.Len = 0, 0
+		offs += len(eHost)
 		// 4. encrypt host+port+params+header
 		UriCBC().Host.Encrypter.CryptBlocks(eHost, eHost)
 		Dbg("encrypted eHost: %v (offs: %d len: %d)", eHost, int(uri.Host.Offs), int(uri.Host.Len))
+	}
+	if onlyHost {
+		// 5. copy `port`+`params`+`header`
+		_ = uri.copyPortParamsHeaders(dst, src)
+	} else {
+		// 5. set the Offs, Len for everything on rhs besides `host` to 0
+		uri.Headers.Offs, uri.Headers.Len = 0, 0
+		uri.Params.Offs, uri.Params.Len = 0, 0
+		uri.Port.Offs, uri.Port.Len = 0, 0
 	}
 	Dbg("dst: %v", dst)
 	return nil
@@ -243,6 +361,9 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte) (err error) {
 
 // CBCDecrypt decrypts the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
 // The decrypted URI for sip:user@host is sip:AES_CBC_DECRYPT(userinfo)@AES_CBC_DECRYPT(hostinfo)
+// The decrypted URI for sip:user@host:port;params?headers is sip:AES_CBC_DECRYPT(userinfo)@AES_CBC_DECRYPT(host):port;params?headers
+// The decrypted URI for sip:user@host;params?headers is sip:AES_CBC_DECRYPT(userinfo)@AES_CBC_DECRYPT(host);params?headers
+// The decrypted URI for sip:user@host?headers is sip:AES_CBC_DECRYPT(userinfo)@AES_CBC_DECRYPT(host)?headers
 func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -255,7 +376,6 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 			Len:  uri.User.Len,
 		}
 		dUser := dPf.Get(dst)
-		//dUser := dst[offs : offs+int(uri.User.Len)]
 		pf := sipsp.PField{
 			Offs: uri.User.Offs,
 			Len:  uri.User.Len,
@@ -289,15 +409,13 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	Dbg("host offs: %d host len : %d", int(uri.Host.Offs), int(uri.Host.Len))
 	UriCBC().Host.Decrypter.CryptBlocks(dHost, host)
 	Dbg("decrypted host part (padded): %v", dHost)
+	uri.Host.Offs = sipsp.OffsT(offs)
 	if host, err = PKCSUnpad(dHost, blockSize); err != nil {
 		return fmt.Errorf("cannot decrypt URI's host part: %w", err)
 	}
 	Dbg("decrypted host part (un-padded): %v %s", host, string(host))
-	uri.Host.Offs = sipsp.OffsT(offs)
 	uri.Host.Len = sipsp.OffsT(len(host))
-	uri.Headers.Offs, uri.Headers.Len = 0, 0
-	uri.Params.Offs, uri.Params.Len = 0, 0
-	uri.Port.Offs, uri.Port.Len = 0, 0
+	_ = uri.copyPortParamsHeaders(dst, src)
 	return nil
 }
 
