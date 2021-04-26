@@ -75,14 +75,36 @@ func TestCBCEncrypt(t *testing.T) {
 		[]byte("sip:1234"),
 		[]byte("sip:foo"),
 	}
+	urisPPH := [...][]byte{
+		[]byte("sip:foo@bar.com;ttl=4"),
+		[]byte("sip:foo@bar.com;ttl=4?to=foo"),
+		[]byte("sip:foo@bar.com?to=foo&from=bar"),
+		[]byte("sip:foo:bar@bar.com:5060"),
+		[]byte("sip:foo@bar.com:5060"),
+		[]byte("sip:foo@bar.com:5060;ttl=4"),
+		[]byte("sip:foo@bar.com:5060;ttl=4?to=foo&from=bar"),
+		[]byte("sip:foo@bar.com:5060;ttl=4;p1=20?to=foo&from=bar"),
+		[]byte("sip:foo@bar.com:5060?to=foo&from=bar"),
+		[]byte("sip:1234;ttl=5"),
+		[]byte("sip:1234?to=bar"),
+		[]byte("sip:1234:5060;ttl=5"),
+		[]byte("sip:1234:5060?to=bar"),
+		[]byte("sip:foo:5060"),
+	}
 	pUris := make([]sipsp.PsipURI, len(uris))
 	for i, s := range uris {
 		if err, _ := sipsp.ParseURI(s, &pUris[i]); err != 0 {
 			t.Fatalf("could not parse SIP URI: %s", string(s))
 		}
 	}
+	pUrisPPH := make([]sipsp.PsipURI, len(urisPPH))
+	for i, s := range urisPPH {
+		if err, _ := sipsp.ParseURI(s, &pUrisPPH[i]); err != 0 {
+			t.Fatalf("could not parse SIP URI: %s", string(s))
+		}
+	}
 	// tests
-	t.Run("encrypt and decrypt using dynamic memory", func(t *testing.T) {
+	t.Run("dynamic memory", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -108,7 +130,7 @@ func TestCBCEncrypt(t *testing.T) {
 			}
 		}
 	})
-	t.Run("encrypt and decrypt using static memory", func(t *testing.T) {
+	t.Run("static memory", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -131,6 +153,33 @@ func TestCBCEncrypt(t *testing.T) {
 			uri := sipsp.PsipURI(au)
 			if !bytes.Equal(uris[i], uri.Flat(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(uri.Flat(plaintxt)))
+			}
+		}
+	})
+	t.Run("host only", func(t *testing.T) {
+		for i, u := range pUrisPPH {
+			Dbg("test case uri: %s", string(urisPPH[i]))
+			au := AnonymURI(u)
+			l, err := au.PKCSPaddedLen(cipher.User.Encrypter.BlockSize())
+			if err != nil {
+				t.Fatalf("cannot compute URI pad len %s: %s", urisPPH[i], err.Error())
+			}
+			Dbg("padded len: %d", l)
+			ciphertxt := EncryptBuf()
+			// host only encryption
+			if err := au.CBCEncrypt(ciphertxt, urisPPH[i], true); err != nil {
+				t.Fatalf("cannot encrypt URI %s: %s", urisPPH[i], err.Error())
+			}
+			Dbg("encrypted URI: %v (len: %d)", ciphertxt, len(ciphertxt))
+			plaintxt := DecryptBuf()
+			if err := au.CBCDecrypt(plaintxt, ciphertxt); err != nil {
+				Dbg("decrypted URI: %v", plaintxt)
+				t.Fatalf("cannot decrypt URI %s: %s", urisPPH[i], err.Error())
+			}
+			Dbg("decrypted URI: %v %s", plaintxt, string((*sipsp.PsipURI)(&au).Flat(plaintxt)))
+			uri := sipsp.PsipURI(au)
+			if !bytes.Equal(urisPPH[i], uri.Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, urisPPH[i], string(uri.Flat(plaintxt)))
 			}
 		}
 	})
