@@ -265,6 +265,28 @@ func (uri AnonymURI) PortParamsHeaders(buf []byte) []byte {
 	return buf[start:end]
 }
 
+// cbcEncryptToken encrypts the token from the src byte, specified using a sipsp.PField into dst
+func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField) (length int, err error) {
+	token := pf.Get(src)
+	// 1. copy token
+	_ = copy(dst, token)
+	ePf := sipsp.PField{
+		Offs: sipsp.OffsT(0),
+		Len:  sipsp.OffsT(len(token)),
+	}
+	eToken := ePf.Get(dst)
+	// 2. pad token
+	blockSize := UriCBC().User.Encrypter.BlockSize()
+	if eToken, err = PKCSPad(eToken, blockSize); err != nil {
+		return 0, fmt.Errorf("cannot encrypt token: %w", err)
+	}
+	Dbg("padded eToken: %v", eToken)
+	// 3. encrypt host part
+	UriCBC().Host.Encrypter.CryptBlocks(eToken, eToken)
+	Dbg("encrypted eToken: %v (len: %d)", eToken, int(uri.Host.Len))
+	return len(eToken), nil
+}
+
 // CBCEncrypt encrypts the user info and host part of uri preserving SIP URI format.
 // The general form of the SIP URI is:
 // sip:user:password@host:port;uri-parameters?headers
@@ -328,23 +350,14 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		host := pf.Get(src)
-		_ = copy(dst[offs:], host)
-		ePf := sipsp.PField{
-			Offs: sipsp.OffsT(offs),
-			Len:  hostEnd - uri.Host.Offs,
+		l, err := uri.cbcEncryptToken(dst[offs:], src, pf)
+		if err != nil {
+			return fmt.Errorf("cannot encrypt URI: %w", err)
 		}
-		eHost := ePf.Get(dst)
-		if eHost, err = PKCSPad(eHost, blockSize); err != nil {
-			return fmt.Errorf("cannot encrypt URI's host part: %w", err)
-		}
-		Dbg("padded eHost: %v", eHost)
+		// update Offs, Len
 		uri.Host.Offs = sipsp.OffsT(offs)
-		uri.Host.Len = sipsp.OffsT(len(eHost))
-		offs += len(eHost)
-		// 4. encrypt host+port+params+header
-		UriCBC().Host.Encrypter.CryptBlocks(eHost, eHost)
-		Dbg("encrypted eHost: %v (offs: %d len: %d)", eHost, int(uri.Host.Offs), int(uri.Host.Len))
+		uri.Host.Len = sipsp.OffsT(l)
+		offs += int(uri.Host.Len)
 	}
 	if onlyHost {
 		// 5. copy `port`+`params`+`header`
