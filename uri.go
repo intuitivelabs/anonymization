@@ -266,7 +266,7 @@ func (uri AnonymURI) PortParamsHeaders(buf []byte) []byte {
 }
 
 // cbcEncryptToken encrypts the token from the src byte, specified using a sipsp.PField into dst
-func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField) (length int, err error) {
+func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMode) (length int, err error) {
 	token := pf.Get(src)
 	// 1. copy token
 	_ = copy(dst, token)
@@ -276,14 +276,15 @@ func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField) (length 
 	}
 	eToken := ePf.Get(dst)
 	// 2. pad token
-	blockSize := UriCBC().User.Encrypter.BlockSize()
+	blockSize := encrypter.BlockSize()
 	if eToken, err = PKCSPad(eToken, blockSize); err != nil {
 		return 0, fmt.Errorf("cannot encrypt token: %w", err)
 	}
 	Dbg("padded eToken: %v", eToken)
 	// 3. encrypt host part
-	UriCBC().Host.Encrypter.CryptBlocks(eToken, eToken)
-	Dbg("encrypted eToken: %v (len: %d)", eToken, int(uri.Host.Len))
+	//UriCBC().Host.Encrypter.CryptBlocks(eToken, eToken)
+	encrypter.CryptBlocks(eToken, eToken)
+	Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
 	return len(eToken), nil
 }
 
@@ -316,26 +317,19 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	}
 	// 2. copy sip scheme
 	offs = int(uri.copyScheme(dst, src))
+	Dbg(`dst: "%s"`, string(dst[0:uri.Scheme.Len]))
 	// 3. copy, pad & encrypt user+pass
 	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.User.Offs), int(userEnd))
-		user := pf.Get(src)
-		_ = copy(dst[offs:], user)
-		ePf := sipsp.PField{}
-		ePf.Set(int(uri.User.Offs), int(userEnd))
-		eUser := ePf.Get(dst)
-		if eUser, err = PKCSPad(eUser, blockSize); err != nil {
-			return fmt.Errorf("cannot encrypt URI's user part: %w", err)
+		l, err := uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().User.Encrypter)
+		if err != nil {
+			return fmt.Errorf("cannot encrypt URI: %w", err)
 		}
-		Dbg("padded eUser: %v", eUser)
 		uri.User.Offs = sipsp.OffsT(offs)
-		uri.User.Len = sipsp.OffsT(len(eUser))
+		uri.User.Len = sipsp.OffsT(l)
 		uri.Pass.Offs, uri.Pass.Len = 0, 0
-		// 2. encrypt (user+pass)
-		UriCBC().User.Encrypter.CryptBlocks(eUser, eUser)
-		Dbg("encrypted eUser: %v", eUser)
 		offs = int(uri.User.Offs + uri.User.Len)
 		// write '@' into dst
 		dst[offs] = '@'
@@ -350,7 +344,7 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		l, err := uri.cbcEncryptToken(dst[offs:], src, pf)
+		l, err := uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
 		if err != nil {
 			return fmt.Errorf("cannot encrypt URI: %w", err)
 		}
@@ -385,7 +379,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	offs := int(uri.copyScheme(dst, src))
 	if uri.User.Len > 0 {
 		dPf := sipsp.PField{
-			Offs: sipsp.OffsT(offs),
+			Offs: uri.User.Offs,
 			Len:  uri.User.Len,
 		}
 		dUser := dPf.Get(dst)
@@ -394,6 +388,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 			Len:  uri.User.Len,
 		}
 		user := pf.Get(src)
+		Dbg("encrypted user part: %v", user)
 		UriCBC().User.Decrypter.CryptBlocks(dUser, user)
 		Dbg("decrypted user part (padded): %v", dUser)
 		if user, err = PKCSUnpad(dUser, blockSize); err != nil {
