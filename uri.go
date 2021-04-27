@@ -282,7 +282,6 @@ func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypte
 	}
 	Dbg("padded eToken: %v", eToken)
 	// 3. encrypt host part
-	//UriCBC().Host.Encrypter.CryptBlocks(eToken, eToken)
 	encrypter.CryptBlocks(eToken, eToken)
 	Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
 	return len(eToken), nil
