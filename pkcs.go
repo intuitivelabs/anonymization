@@ -21,6 +21,9 @@ func isPadded(buf []byte, pad byte) bool {
 	if pad == 0 {
 		return false
 	}
+	if len(buf) != int(pad) {
+		return false
+	}
 	for _, v := range buf {
 		if v != pad {
 			return false
@@ -69,9 +72,6 @@ func PKCSPad(buf []byte, size int) ([]byte, error) {
 func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 	df := DbgOff()
 	defer DbgRestore(df)
-	var (
-		blocks [maxBlocks]Block
-	)
 	if size > 255 {
 		return nil, fmt.Errorf("block size %d not supported by padding algorithm:", size)
 	}
@@ -79,43 +79,13 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 	if l%size != 0 {
 		return nil, fmt.Errorf("buffer length %d is not a multiple of block size %d:", l, size)
 	}
-	noBlocks := l / size
-	if len(blocks) < noBlocks {
-		return nil, fmt.Errorf("buffer is too large: %d bytes (%d blocks of %d bytes):", l, noBlocks, size)
+	pad := int(buf[l-1])
+	if pad > size || pad == 0 ||
+		pad > l || (pad == 16 && l < 32) {
+		return nil, fmt.Errorf("invalid pad byte %d for block size %d and buffer length %d", pad, size, l)
 	}
-	for j, bi := 0, 0; bi < noBlocks; j, bi = j+1, bi+1 {
-		offs := bi * size
-		if bi+1 < noBlocks {
-			if ok := isPadded(buf[(bi+1)*size:(bi+2)*size], byte(size)); ok {
-				blocks[j] = Block{offs, size}
-				bi++
-				continue
-			}
-		}
-		Dbg("buf: %v", buf)
-		pad := buf[offs+size-1]
-		if pad == 0 {
-			return nil, fmt.Errorf("broken padding byte 0x%x (%d) starting at offset %d", pad, pad, offs+size-1)
-		}
-		if int(pad) > offs+size {
-			return nil, fmt.Errorf("broken padding byte 0x%x (%d) starting at offset %d", pad, pad, offs+size-1)
-		}
-		if ok := isPadded(buf[offs+size-int(pad):offs+size], pad); ok {
-			blocks[j] = Block{offs, size - int(pad)}
-		} else {
-			return nil, fmt.Errorf("broken padding byte 0x%x (%d) between offsets %d-%d",
-				buf[offs+size-int(pad)],
-				buf[offs+size-int(pad)],
-				offs+size-int(pad), offs+size-1)
-		}
+	if ok := isPadded(buf[l-pad:l], byte(pad)); !ok {
+		return nil, fmt.Errorf("broken padding with byte 0x%x (%d) between offsets %d-%d", pad, pad, l-pad, l)
 	}
-	buf = buf[blocks[0].Offs : blocks[0].Offs+blocks[0].Len]
-	length := blocks[0].Len
-	if len(blocks) > 1 {
-		for _, v := range blocks[1:] {
-			buf = append(buf, buf[v.Offs:v.Offs+v.Len]...)
-			length += v.Len
-		}
-	}
-	return buf, nil
+	return buf[0 : l-pad], nil
 }
