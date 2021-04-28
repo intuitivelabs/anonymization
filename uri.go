@@ -287,6 +287,21 @@ func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypte
 	return len(eToken), nil
 }
 
+// encodeToken encodes the token specified by sipsp.PField from src buffer into dst buffer using the encoder.
+// It returns the length of the encoded token.
+func (uri *AnonymURI) encodeToken(dst, src []byte, pf sipsp.PField, encoder *base32.Encoding) (length int) {
+	token := pf.Get(src)
+	Dbg("token: %v", token)
+	length = encoder.EncodedLen(len(token))
+	ePf := sipsp.PField{
+		Offs: 0,
+		Len:  sipsp.OffsT(length),
+	}
+	eToken := ePf.Get(dst)
+	encoder.Encode(eToken, token)
+	return
+}
+
 // CBCEncrypt encrypts the user info and host part of uri preserving SIP URI format.
 // The general form of the SIP URI is:
 // sip:user:password@host:port;uri-parameters?headers
@@ -460,7 +475,7 @@ func (uri AnonymURI) DecodedLen(buf []byte) (l int) {
 
 // Encode encodes using base32 the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
 // The encoded URI for sip:user@host is sip:base32(userinfo)@base32(hostinfo)
-func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
+func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var (
@@ -479,17 +494,12 @@ func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
 	if userEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.User.Offs), int(userEnd))
-		user := pf.Get(src)
-		Dbg("user: %v", user)
-		ePf := sipsp.PField{
-			Offs: uri.User.Offs,
-			Len:  sipsp.OffsT(codec.EncodedLen(len(user))),
-		}
-		eUser := ePf.Get(dst)
-		codec.Encode(eUser, user)
-		uri.User.Len = sipsp.OffsT(len(eUser))
+		l := uri.encodeToken(dst[uri.User.Offs:], src, pf, codec)
+		// update the length of the encoded `user`
+		uri.User.Len = sipsp.OffsT(l)
+		// `password` was encoded as part of `user`
 		uri.Pass.Offs, uri.Pass.Len = 0, 0
-		Dbg("encoded eUser: %v", eUser)
+		Dbg("encoded user: %v", uri.User.Get(dst))
 		offs = int(uri.User.Offs + uri.User.Len)
 		// write '@' into dst
 		dst[offs] = '@'
@@ -500,20 +510,15 @@ func (uri *AnonymURI) Encode(dst, src []byte) (err error) {
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		host := pf.Get(src)
-		Dbg("len(host): %d codec.EncodedLen(len(host)): %d", len(host), codec.EncodedLen(len(host)))
-		ePf := sipsp.PField{
-			Offs: sipsp.OffsT(offs),
-			Len:  sipsp.OffsT(codec.EncodedLen(len(host))),
-		}
-		eHost := ePf.Get(dst)
-		codec.Encode(eHost, host)
+		l := uri.encodeToken(dst[offs:], src, pf, codec)
+		// `headers`, `params`, `port` were encoded as part of host
 		uri.Headers.Offs, uri.Headers.Len = 0, 0
 		uri.Params.Offs, uri.Params.Len = 0, 0
 		uri.Port.Offs, uri.Port.Len = 0, 0
+		// update the Offs and Len of the Host
 		uri.Host.Offs = sipsp.OffsT(offs)
-		uri.Host.Len = sipsp.OffsT(len(eHost))
-		Dbg("encoded eHost: %v", eHost)
+		uri.Host.Len = sipsp.OffsT(l)
+		Dbg("encoded eHost: %v", uri.Host.Get(dst))
 	}
 	return nil
 }
