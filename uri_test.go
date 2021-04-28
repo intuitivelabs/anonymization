@@ -16,9 +16,20 @@ func TestBase32Codec(t *testing.T) {
 	defer DbgRestore(df)
 	uris := [...][]byte{
 		[]byte("sip:foo:pass@bar.com"),
+		[]byte("sip:foo:pass@bar.com:5060"),
+		[]byte("sip:foo:pass@bar.com:5060;ttl=1"),
+		[]byte("sip:foo:pass@bar.com:5060;ttl=1?h=foo"),
+		[]byte("sip:foo:pass@bar.com;ttl=1"),
+		[]byte("sip:foo:pass@bar.com;ttl=1?h=foo"),
+		[]byte("sip:foo:pass@bar.com?h=foo"),
 		[]byte("sip:foo@bar.com"),
 		[]byte("sips:foo:pass@bar.com"),
 		[]byte("sip:1234"),
+		[]byte("sip:1234:5060"),
+		[]byte("sip:1234:5060;ttl=1"),
+		[]byte("sip:1234:5060;ttl=1?h=foo"),
+		[]byte("sip:1234;ttl=1"),
+		[]byte("sip:1234?h=foo"),
 		[]byte("sip:foo"),
 	}
 	pUris := make([]sipsp.PsipURI, len(uris))
@@ -28,7 +39,7 @@ func TestBase32Codec(t *testing.T) {
 		}
 	}
 	// tests
-	t.Run("encode and decode with dynamic memory", func(t *testing.T) {
+	t.Run("dynamic memory", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -36,6 +47,32 @@ func TestBase32Codec(t *testing.T) {
 			Dbg("encoded len: %d", l)
 			encoded := make([]byte, l)
 			if err := au.Encode(encoded, uris[i]); err != nil {
+				t.Fatalf("cannot encode URI %s: %s", uris[i], err.Error())
+			}
+			Dbg("encoded URI: %v (len: %d)", encoded, len(encoded))
+			//Dbg("encoded URI: %s", au.Str*ing(encoded))
+			Dbg("encoded URI: %s", string((*sipsp.PsipURI)(&au).Flat(encoded)))
+			l = au.DecodedLen(encoded)
+			decoded := make([]byte, l)
+			if err := au.Decode(decoded, encoded); err != nil {
+				Dbg("decoded URI: %v", decoded)
+				t.Fatalf("cannot decode URI %s: %s", uris[i], err.Error())
+			}
+			Dbg("decoded URI: %s", string((*sipsp.PsipURI)(&au).Flat(decoded)))
+			uri := sipsp.PsipURI(au)
+			if !bytes.Equal(uris[i], uri.Flat(decoded)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(uri.Flat(decoded)))
+			}
+		}
+	})
+	t.Run("host only", func(t *testing.T) {
+		for i, u := range pUris {
+			Dbg("test case uri: %s", string(uris[i]))
+			au := AnonymURI(u)
+			l := au.EncodedLen(uris[i])
+			Dbg("encoded len: %d", l)
+			encoded := make([]byte, l)
+			if err := au.Encode(encoded, uris[i], true); err != nil {
 				t.Fatalf("cannot encode URI %s: %s", uris[i], err.Error())
 			}
 			Dbg("encoded URI: %v (len: %d)", encoded, len(encoded))
@@ -200,9 +237,20 @@ func TestAnonymization(t *testing.T) {
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:foo:pass@bar.com"),
+		[]byte("sip:foo:pass@bar.com:5060"),
+		[]byte("sip:foo:pass@bar.com:5060;ttl=1"),
+		[]byte("sip:foo:pass@bar.com:5060;ttl=1?h=foo"),
+		[]byte("sip:foo:pass@bar.com;ttl=1"),
+		[]byte("sip:foo:pass@bar.com;ttl=1?h=foo"),
+		[]byte("sip:foo:pass@bar.com?h=foo"),
 		[]byte("sip:foo@bar.com"),
 		[]byte("sips:foo:pass@bar.com"),
 		[]byte("sip:1234"),
+		[]byte("sip:1234:5060"),
+		[]byte("sip:1234:5060;ttl=1"),
+		[]byte("sip:1234:5060;ttl=1?h=foo"),
+		[]byte("sip:1234;ttl=1"),
+		[]byte("sip:1234?h=foo"),
 		[]byte("sip:foo"),
 	}
 	pUris := make([]sipsp.PsipURI, len(uris))
@@ -211,7 +259,8 @@ func TestAnonymization(t *testing.T) {
 			t.Fatalf("could not parse SIP URI: %s", string(s))
 		}
 	}
-	t.Run("anonymize, de-anonymize", func(t *testing.T) {
+	// tests
+	t.Run("everything", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
 			au := AnonymURI(u)
@@ -230,5 +279,23 @@ func TestAnonymization(t *testing.T) {
 			}
 		}
 	})
-	// tests
+	t.Run("host only", func(t *testing.T) {
+		for i, u := range pUris {
+			Dbg("test case uri: %s", string(uris[i]))
+			au := AnonymURI(u)
+			anon := AnonymizeBuf()
+			if err := au.Anonymize(anon, uris[i], true); err != nil {
+				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
+			}
+			Dbg("anonymized uri: %v %s", anon, string((*sipsp.PsipURI)(&au).Flat(anon)))
+			deanon := DeanonymizeBuf()
+			if err := au.Deanonymize(deanon, anon); err != nil {
+				t.Fatalf("could not deanonymize SIP URI %s: %s", string((*sipsp.PsipURI)(&au).Flat(anon)), err)
+			}
+			Dbg("deanonymized uri: %v %s", deanon, string((*sipsp.PsipURI)(&au).Flat(deanon)))
+			if !bytes.Equal(uris[i], (*sipsp.PsipURI)(&au).Flat(deanon)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((*sipsp.PsipURI)(&au).Flat(deanon)))
+			}
+		}
+	})
 }

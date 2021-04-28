@@ -246,11 +246,11 @@ func (uri AnonymURI) portParamsHeadersStart() sipsp.OffsT {
 	}
 	start = uri.Params.Offs
 	if start != 0 {
-		Dbg("pph start: uri.Params.offs: %d", start)
+		Dbg("pph start: uri.Params.Offs: %d", start)
 		return start
 	}
 	start = uri.Headers.Offs
-	Dbg("pph start: uri.Headers.offs: %d", start)
+	Dbg("pph start: uri.Headers.Offs: %d", start)
 	return start
 }
 
@@ -466,9 +466,23 @@ func (uri AnonymURI) DecodedLen(buf []byte) (l int) {
 		// add 1 byte for '@'
 		l++
 	}
-	hostEnd := uri.hostPortParamsHeadersEnd()
-	if hostEnd > 0 {
-		l += codec.DecodedLen(len(buf[uri.Host.Offs:hostEnd]))
+	if uri.Host.Len > 0 {
+		l += codec.DecodedLen(int(uri.Host.Len))
+	}
+	if uri.Port.Len > 0 {
+		l += int(uri.Port.Len)
+		// add 1 byte for ':'
+		l++
+	}
+	if uri.Params.Len > 0 {
+		l += int(uri.Params.Len)
+		// add 1 byte for ';'
+		l++
+	}
+	if uri.Headers.Len > 0 {
+		l += int(uri.Headers.Len)
+		// add 1 byte for '?'
+		l++
 	}
 	return l
 }
@@ -479,8 +493,12 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var (
-		offs int = 0
+		offs     int  = 0
+		onlyHost bool = false
 	)
+	if len(opts) > 0 {
+		onlyHost = opts[0]
+	}
 	codec := NewEncoding()
 	// 1. check dst len
 	if len(dst) < uri.EncodedLen(src) {
@@ -507,18 +525,27 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	}
 	// 4. encode host+port+params+header
 	hostEnd := uri.hostPortParamsHeadersEnd()
+	if onlyHost {
+		// 4. copy, pad & encrypt `host`
+		hostEnd = uri.hostEnd()
+	}
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
 		l := uri.encodeToken(dst[offs:], src, pf, codec)
-		// `headers`, `params`, `port` were encoded as part of host
-		uri.Headers.Offs, uri.Headers.Len = 0, 0
-		uri.Params.Offs, uri.Params.Len = 0, 0
-		uri.Port.Offs, uri.Port.Len = 0, 0
 		// update the Offs and Len of the Host
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(l)
 		Dbg("encoded eHost: %v", uri.Host.Get(dst))
+		offs += int(uri.Host.Len)
+	}
+	if onlyHost {
+		_ = uri.copyPortParamsHeaders(dst, src)
+	} else {
+		// `headers`, `params`, `port` were encoded as part of host
+		uri.Headers.Offs, uri.Headers.Len = 0, 0
+		uri.Params.Offs, uri.Params.Len = 0, 0
+		uri.Port.Offs, uri.Port.Len = 0, 0
 	}
 	return nil
 }
@@ -538,7 +565,7 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 	}
 	// copy the SIP scheme
 	offs = int(uri.copyScheme(dst, src))
-	// 3. encode user+pass
+	// decode user+pass
 	userEnd := uri.userPassEnd()
 	if userEnd > 0 {
 		pf := sipsp.PField{}
@@ -562,37 +589,30 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 		dst[offs] = '@'
 		offs++
 	}
-	// 4. encode host+port+params+header
-	hostEnd := uri.hostPortParamsHeadersEnd()
-	if hostEnd > 0 {
-		pf := sipsp.PField{}
-		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		host := pf.Get(src)
-		ePf := sipsp.PField{
-			Offs: sipsp.OffsT(offs),
-			Len:  sipsp.OffsT(codec.DecodedLen(len(host))),
-		}
-		eHost := ePf.Get(dst)
-		n, err := codec.Decode(eHost, host)
-		if err != nil {
-			return fmt.Errorf("error decoding URI host part: %w", err)
-		}
-		uri.Headers.Offs, uri.Headers.Len = 0, 0
-		uri.Params.Offs, uri.Params.Len = 0, 0
-		uri.Port.Offs, uri.Port.Len = 0, 0
-		uri.Host.Offs = sipsp.OffsT(offs)
-		uri.Host.Len = sipsp.OffsT(n)
-		Dbg("encoded eHost: %v", eHost[:n])
+	// decode host
+	host := uri.Host.Get(src)
+	dPf := sipsp.PField{
+		Offs: sipsp.OffsT(offs),
+		Len:  sipsp.OffsT(codec.DecodedLen(int(uri.Host.Len))),
 	}
+	dHost := dPf.Get(dst)
+	l, err := codec.Decode(dHost, host)
+	if err != nil {
+		return fmt.Errorf("error decoding URI host part: %w", err)
+	}
+	Dbg("decoded host: %v", dHost[:l])
+	uri.Host.Offs = sipsp.OffsT(offs)
+	uri.Host.Len = sipsp.OffsT(l)
+	_ = uri.copyPortParamsHeaders(dst, src)
 	return nil
 }
 
-func (uri *AnonymURI) Anonymize(dst, src []byte) (err error) {
+func (uri *AnonymURI) Anonymize(dst, src []byte, opts ...bool) (err error) {
 	ciphertxt := EncryptBuf()
-	if err = uri.CBCEncrypt(ciphertxt, src); err != nil {
+	if err = uri.CBCEncrypt(ciphertxt, src, opts...); err != nil {
 		return fmt.Errorf("cannot anonymize URI: %w", err)
 	}
-	if err = uri.Encode(dst, ciphertxt); err != nil {
+	if err = uri.Encode(dst, ciphertxt, opts...); err != nil {
 		return fmt.Errorf("cannot anonymize URI: %w", err)
 	}
 	return nil
