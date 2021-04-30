@@ -12,11 +12,15 @@ package anonymization
 import (
 	"crypto/sha1"
 	"crypto/subtle"
+	"encoding/hex"
 	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
-	Salt = "ipcipheripcipher"
+	SaltIpcipher = "ipcipheripcipher"
+	SaltIV       = "1190e68008426899bc48fe7719c2ffb7"
+	SaltUK       = "e3ab68497b69d87ddf6b5d97e24b6bb1"
+	SaltHK       = "23c1be46c4af62a6c6be8c860e2f13bc"
 	// key lengths are in bytes
 	EncryptionKeyLen     = 16
 	AuthenticationKeyLen = 32
@@ -28,8 +32,40 @@ const (
 	MaxUintLen = 10
 )
 
+func GenerateKeyWithSalt(salt string, bytes []byte, keyLen int) ([]byte, error) {
+	decoded, err := hex.DecodeString(salt)
+	if err != nil {
+		return nil, err
+	}
+	return pbkdf2.Key(bytes, decoded, IterationCount, keyLen, sha1.New), nil
+}
+
+func GenerateKeyWithSaltAndCopy(salt string, bytes []byte, keyLen int, key []byte) error {
+	tmpKey, err := GenerateKeyWithSalt(SaltUK, bytes, keyLen)
+	if err != nil {
+		return err
+	}
+	subtle.ConstantTimeCopy(1, key[:], tmpKey[:])
+	return nil
+}
+
+// generate IV for CBC
+func GenerateIV(bytes []byte, ivLen int, iv []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltIV, bytes, ivLen, iv)
+}
+
+// generate key for URI's user part
+func GenerateURIUserKey(bytes []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUK, bytes, keyLen, key)
+}
+
+// generate key for URI's host part
+func GenerateURIHostKey(bytes []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltHK, bytes, keyLen, key)
+}
+
 func GenerateKeyFromBytes(bytes []byte, keyLen int) []byte {
-	return pbkdf2.Key(bytes, []byte(Salt), IterationCount, keyLen, sha1.New)
+	return pbkdf2.Key(bytes, []byte(SaltIpcipher), IterationCount, keyLen, sha1.New)
 }
 
 func GenerateKeyFromBytesAndCopy(bytes []byte, keyLen int, key []byte) {
