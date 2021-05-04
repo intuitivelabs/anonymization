@@ -101,6 +101,10 @@ func DeanonymizeBuf() []byte {
 	return deanonBuf[:]
 }
 
+func pkcsPadToken(dst []byte, pf sipsp.PField, blockSize int) ([]byte, error) {
+	return PKCSPad(dst, int(pf.Offs), int(pf.Len), blockSize)
+}
+
 type AnonymURI sipsp.PsipURI
 
 // PKCSPaddedLen computes the length of URI with the userpart and host padded to a multiple of size.
@@ -274,10 +278,10 @@ func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypte
 		Offs: sipsp.OffsT(0),
 		Len:  sipsp.OffsT(len(token)),
 	}
-	eToken := ePf.Get(dst)
 	// 2. pad token
 	blockSize := encrypter.BlockSize()
-	if eToken, err = PKCSPad(eToken, blockSize); err != nil {
+	eToken, err := pkcsPadToken(dst, ePf, blockSize)
+	if err != nil {
 		return 0, fmt.Errorf("cannot encrypt token: %w", err)
 	}
 	Dbg("padded eToken: %v", eToken)
