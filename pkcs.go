@@ -40,31 +40,29 @@ func PKCSPadLen(length, size int) (int, error) {
 	return size - (length % size), nil
 }
 
-// PKCSPad padds buf up to a length which is multiple of size. Size has to be less than 256.
+// PKCSPad padds the slice starting at offset and having length bytes up to a multiple of size. Size has to be less than 256.
+// The following should hold: offset < length < len(buf)
 // See https://tools.ietf.org/html/rfc2315#section-10.3 for details
-func PKCSPad(buf []byte, size int) ([]byte, error) {
+func PKCSPad(buf []byte, offset, length, size int) ([]byte, error) {
 	df := DbgOff()
 	defer DbgRestore(df)
 	if size > 255 {
 		return nil, fmt.Errorf("size %d not supported by padding algorithm:", size)
 	}
-	l := len(buf)
-	padLen, err := PKCSPadLen(l, size)
+	padLen, err := PKCSPadLen(length, size)
 	if err != nil {
 		return nil, fmt.Errorf("could not compute pad len: %w", err)
 	}
-	n := l + padLen
-	// reallocate slice if needed
-	if n > cap(buf) {
-		s := make([]byte, (n+1)*2)
-		copy(s, buf)
-		buf = s
+	if len(buf) < offset+length+padLen {
+		return nil, fmt.Errorf("buffer of %d bytes too small for padding between offsets %d-%d",
+			len(buf), length, length+padLen)
 	}
-	buf = buf[0:n]
-	for i := 0; i < padLen; i++ {
-		buf[l+i] = byte(padLen)
+	// fill with padding bytes
+	fill := buf[length : length+padLen]
+	for i, _ := range fill {
+		fill[i] = byte(padLen)
 	}
-	return buf, nil
+	return buf[offset : length+padLen], nil
 }
 
 // PKCSUnpad removes the padding from buf returning an unpadded slice
