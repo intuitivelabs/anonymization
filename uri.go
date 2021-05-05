@@ -112,6 +112,16 @@ func pkcsPadToken(dst []byte, pf sipsp.PField, blockSize int) ([]byte, error) {
 
 type AnonymURI sipsp.PsipURI
 
+func (uri *AnonymURI) hostToLower(buf []byte) {
+	host := uri.Host.Get(buf)
+	for i, c := range host {
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		host[i] = c
+	}
+}
+
 // PKCSPaddedLen computes the length of URI with the userpart and host padded to a multiple of size.
 // Scheme and separator '@' are not padded.
 func (uri *AnonymURI) PKCSPaddedLen(size int) (int, error) {
@@ -337,17 +347,19 @@ func (uri *AnonymURI) cbcEncryptUserInfo(dst, src []byte, offs int) (int, error)
 	return 0, nil
 }
 
-// cbcEncryptHostInfo encrypts the URI's host info (rhs of the `@`) from src into dst starting at offset offs when there is a non-empty host info.
+// cbcEncryptHostInfo encrypts the URI's host info (rhs of the `@`) from src into dst starting at offset offs
+// when there is a non-empty host info. The host part is lowercased before it is encrypted.
 // It returns the length of the encrypted host info. It returns a 0 length when there is no user info in the URI.
 // The boolean flag `onlyHost` indicates whether only the host name gets encrypted (true) or the whole rhs gets encrypted (false).
 func (uri *AnonymURI) cbcEncryptHostInfo(dst, src []byte, offs int, onlyHost bool) (l int, err error) {
-	hostEnd := uri.hostPortParamsHeadersEnd()
+	uri.hostToLower(src)
+	end := uri.hostPortParamsHeadersEnd()
 	if onlyHost {
-		hostEnd = uri.hostEnd()
+		end = uri.hostEnd()
 	}
-	if hostEnd > 0 {
+	if end > 0 {
 		pf := sipsp.PField{}
-		pf.Set(int(uri.Host.Offs), int(hostEnd))
+		pf.Set(int(uri.Host.Offs), int(end))
 		UriCBC().Host.Reset()
 		l, err = uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
 		if err != nil {
