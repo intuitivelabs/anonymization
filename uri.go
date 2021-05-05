@@ -49,6 +49,11 @@ func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
 	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
 }
 
+func (bm *BlockModeCipher) Reset() {
+	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.IV)
+	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
+}
+
 var (
 	// URI CBC cipher
 	uriCBC = UriCBCMode{}
@@ -285,7 +290,7 @@ func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypte
 		return 0, fmt.Errorf("cannot encrypt token: %w", err)
 	}
 	Dbg("padded eToken: %v", eToken)
-	// 3. encrypt host part
+	// 3. encrypt token
 	encrypter.CryptBlocks(eToken, eToken)
 	Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
 	return len(eToken), nil
@@ -306,10 +311,70 @@ func (uri *AnonymURI) encodeToken(dst, src []byte, pf sipsp.PField, encoder *bas
 	return
 }
 
-// CBCEncrypt encrypts the user info and host part of uri preserving SIP URI format.
+// cbcEncryptUserInfo encrypts the URI's user info (lhs of the `@`) from src into dst starting at offset offs when there is a non-empty user info;
+// it returns the length of the encrypted user info. It returns a 0 length when there is no user info in the URI.
+func (uri *AnonymURI) cbcEncryptUserInfo(dst, src []byte, offs int) (int, error) {
+	userEnd := uri.userPassEnd()
+	if userEnd > 0 {
+		dst = dst[offs:]
+		pf := sipsp.PField{}
+		pf.Set(int(uri.User.Offs), int(userEnd))
+		UriCBC().User.Reset()
+		l, err := uri.cbcEncryptToken(dst, src, pf, UriCBC().User.Encrypter)
+		if err != nil {
+			return 0, fmt.Errorf("cannot encrypt user part: %w", err)
+		}
+		uri.User = sipsp.PField{
+			Offs: sipsp.OffsT(offs),
+			Len:  sipsp.OffsT(l),
+		}
+		uri.Pass = sipsp.PField{
+			Offs: 0,
+			Len:  0,
+		}
+		return l, nil
+	}
+	return 0, nil
+}
+
+// cbcEncryptHostInfo encrypts the URI's host info (rhs of the `@`) from src into dst starting at offset offs when there is a non-empty host info.
+// It returns the length of the encrypted host info. It returns a 0 length when there is no user info in the URI.
+// The boolean flag `onlyHost` indicates whether only the host name gets encrypted (true) or the whole rhs gets encrypted (false).
+func (uri *AnonymURI) cbcEncryptHostInfo(dst, src []byte, offs int, onlyHost bool) (l int, err error) {
+	hostEnd := uri.hostPortParamsHeadersEnd()
+	if onlyHost {
+		hostEnd = uri.hostEnd()
+	}
+	if hostEnd > 0 {
+		pf := sipsp.PField{}
+		pf.Set(int(uri.Host.Offs), int(hostEnd))
+		UriCBC().Host.Reset()
+		l, err = uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
+		if err != nil {
+			return 0, fmt.Errorf("cannot encrypt URI: %w", err)
+		}
+		// update Offs, Len
+		uri.Host.Offs = sipsp.OffsT(offs)
+		uri.Host.Len = sipsp.OffsT(l)
+		offs += int(uri.Host.Len)
+		if onlyHost {
+			// 5. copy `port`+`params`+`header`
+			l += int(uri.copyPortParamsHeaders(dst, src))
+		} else {
+			// 5. set the Offs, Len for everything on rhs besides `host` to 0
+			uri.Headers.Offs, uri.Headers.Len = 0, 0
+			uri.Params.Offs, uri.Params.Len = 0, 0
+			uri.Port.Offs, uri.Port.Len = 0, 0
+		}
+		return l, nil
+	}
+	return 0, nil
+}
+
+// CBCEncrypt encrypts the user info (lhs of `@`) and host info (rhs of `@`) of uri preserving SIP URI format.
 // The general form of the SIP URI is:
 // sip:user:password@host:port;uri-parameters?headers
-// By default (opts not specified or opt[0] is false), the encrypted URI is:
+// By default (opts not specified) or when opt[0] is false, the encrypted URI is:
 // sip:AES_CBC_ENCRYPT(user:password)@AES_CBC_ENCRYPT(host:port;uri-parameters?headers)
 // If opts[0] is true, the encrypted URI is:
 // sip:AES_CBC_ENCRYPT(user:password)@AES_CBC_ENCRYPT(host):port;uri-parameters?headers
@@ -337,48 +402,20 @@ func (uri *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	offs = int(uri.copyScheme(dst, src))
 	Dbg(`dst: "%s"`, string(dst[0:uri.Scheme.Len]))
 	// 3. copy, pad & encrypt user+pass
-	userEnd := uri.userPassEnd()
-	if userEnd > 0 {
-		pf := sipsp.PField{}
-		pf.Set(int(uri.User.Offs), int(userEnd))
-		l, err := uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().User.Encrypter)
-		if err != nil {
-			return fmt.Errorf("cannot encrypt URI: %w", err)
-		}
-		uri.User.Offs = sipsp.OffsT(offs)
-		uri.User.Len = sipsp.OffsT(l)
-		uri.Pass.Offs, uri.Pass.Len = 0, 0
+	l, err := uri.cbcEncryptUserInfo(dst, src, offs)
+	if err != nil {
+		return fmt.Errorf("cannot encrypt URI: %w", err)
+	}
+	if l > 0 {
 		offs = int(uri.User.Offs + uri.User.Len)
 		// write '@' into dst
 		dst[offs] = '@'
 		offs++
 	}
 	// 4. copy, pad & encrypt `host`+`port`+`params`+`header`
-	hostEnd := uri.hostPortParamsHeadersEnd()
-	if onlyHost {
-		// 4. copy, pad & encrypt `host`
-		hostEnd = uri.hostEnd()
-	}
-	if hostEnd > 0 {
-		pf := sipsp.PField{}
-		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		l, err := uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
-		if err != nil {
-			return fmt.Errorf("cannot encrypt URI: %w", err)
-		}
-		// update Offs, Len
-		uri.Host.Offs = sipsp.OffsT(offs)
-		uri.Host.Len = sipsp.OffsT(l)
-		offs += int(uri.Host.Len)
-	}
-	if onlyHost {
-		// 5. copy `port`+`params`+`header`
-		_ = uri.copyPortParamsHeaders(dst, src)
-	} else {
-		// 5. set the Offs, Len for everything on rhs besides `host` to 0
-		uri.Headers.Offs, uri.Headers.Len = 0, 0
-		uri.Params.Offs, uri.Params.Len = 0, 0
-		uri.Port.Offs, uri.Port.Len = 0, 0
+	l, err = uri.cbcEncryptHostInfo(dst, src, offs, onlyHost)
+	if err != nil {
+		return fmt.Errorf("cannot encrypt URI: %w", err)
 	}
 	Dbg("dst: %v", dst)
 	return nil
@@ -407,6 +444,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 		}
 		user := pf.Get(src)
 		Dbg("encrypted user part: %v", user)
+		UriCBC().User.Reset()
 		UriCBC().User.Decrypter.CryptBlocks(dUser, user)
 		Dbg("decrypted user part (padded): %v", dUser)
 		if user, err = PKCSUnpad(dUser, blockSize); err != nil {
@@ -433,6 +471,7 @@ func (uri *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	}
 	host := pf.Get(src)
 	Dbg("host offs: %d host len : %d", int(uri.Host.Offs), int(uri.Host.Len))
+	UriCBC().Host.Reset()
 	UriCBC().Host.Decrypter.CryptBlocks(dHost, host)
 	Dbg("decrypted host part (padded): %v", dHost)
 	uri.Host.Offs = sipsp.OffsT(offs)
