@@ -227,13 +227,21 @@ func TestAnonymization(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
-	ukey, _ := hex.DecodeString("6368616e676520746869732070617373")
-	hkey, _ := hex.DecodeString("7368616e676520746869732070617374")
-	var iv [16]byte
-	if _, err := io.ReadFull(rand.Reader, iv[:]); err != nil {
-		t.Fatalf("could not init IV: %s", err)
-	}
-	_ = NewUriCBC(iv[:], ukey, hkey)
+	var encKey [EncryptionKeyLen]byte
+	var iv [EncryptionKeyLen]byte
+	var uk [EncryptionKeyLen]byte
+	var hk [EncryptionKeyLen]byte
+	pass := "foobar"
+	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
+	// generate IV for CBC
+	GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
+	// generate key for URI's user part
+	GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
+	// generate key for URI's host part
+	GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
+
+	// initialize the URI CBC based encryption
+	_ = NewUriCBC(iv[:], uk[:], hk[:])
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:foo:pass@bar.com"),
@@ -252,6 +260,10 @@ func TestAnonymization(t *testing.T) {
 		[]byte("sip:1234;ttl=1"),
 		[]byte("sip:1234?h=foo"),
 		[]byte("sip:foo"),
+		[]byte("sip:004956768326@188.74.3.208:3894"),
+		[]byte("sip:004956768326@188.74.3.208:3894"),
+		[]byte("sip:004956769215869@188.74.3.208:3894"),
+		[]byte("sip:004924554390004@85.212.141.52"),
 	}
 	pUris := make([]sipsp.PsipURI, len(uris))
 	for i, s := range uris {
@@ -260,6 +272,26 @@ func TestAnonymization(t *testing.T) {
 		}
 	}
 	// tests
+	t.Run("CBC state", func(t *testing.T) {
+		for i, u := range pUris {
+			Dbg("test case uri: %s", string(uris[i]))
+			au := AnonymURI(u)
+			anon := AnonymizeBuf()
+			if err := au.Anonymize(anon, uris[i], true); err != nil {
+				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
+			}
+			Dbg("anonymized uri: %v %s", anon, string((*sipsp.PsipURI)(&au).Flat(anon)))
+			dupAnon := make([]byte, len(anon))
+			dupAu := AnonymURI(u)
+			if err := dupAu.Anonymize(dupAnon, uris[i], true); err != nil {
+				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
+			}
+			Dbg("duplicated anonymized uri: %v %s", dupAnon, string((*sipsp.PsipURI)(&dupAu).Flat(dupAnon)))
+			if !bytes.Equal((*sipsp.PsipURI)(&au).Flat(anon), (*sipsp.PsipURI)(&au).Flat(dupAnon)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, (*sipsp.PsipURI)(&au).Flat(anon), (*sipsp.PsipURI)(&au).Flat(dupAnon))
+			}
+		}
+	})
 	t.Run("everything", func(t *testing.T) {
 		for i, u := range pUris {
 			Dbg("test case uri: %s", string(uris[i]))
@@ -295,6 +327,52 @@ func TestAnonymization(t *testing.T) {
 			Dbg("deanonymized uri: %v %s", deanon, string((*sipsp.PsipURI)(&au).Flat(deanon)))
 			if !bytes.Equal(uris[i], (*sipsp.PsipURI)(&au).Flat(deanon)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((*sipsp.PsipURI)(&au).Flat(deanon)))
+			}
+		}
+	})
+}
+
+func BenchmarkUriAnonymization(b *testing.B) {
+	// init
+	df := DbgOn()
+	defer DbgRestore(df)
+	var encKey [EncryptionKeyLen]byte
+	var iv [EncryptionKeyLen]byte
+	var uk [EncryptionKeyLen]byte
+	var hk [EncryptionKeyLen]byte
+	pass := "foobar"
+	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
+	// generate IV for CBC
+	GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
+	// generate key for URI's user part
+	GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
+	// generate key for URI's host part
+	GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
+
+	// initialize the URI CBC based encryption
+	_ = NewUriCBC(iv[:], uk[:], hk[:])
+	// test case data
+	uris := [...][]byte{
+		[]byte("sip:004956768326@188.74.3.208:3894"),
+		[]byte("sip:004956768326@188.74.3.208:3894"),
+		[]byte("sip:004956769215869@188.74.3.208:3894"),
+	}
+	pUris := make([]sipsp.PsipURI, len(uris))
+	for i, s := range uris {
+		if err, _ := sipsp.ParseURI(s, &pUris[i]); err != 0 {
+			b.Fatalf("could not parse SIP URI: %s", string(s))
+		}
+	}
+	b.Run("anonymize", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for i, u := range pUris {
+				au := AnonymURI(u)
+				//anon := AnonymizeBuf()
+				anon := make([]byte, 3000)
+				if err := au.Anonymize(anon, uris[i], true); err != nil {
+					b.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
+				}
 			}
 		}
 	})
