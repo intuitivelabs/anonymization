@@ -41,7 +41,7 @@ func GenerateKeyWithSalt(salt string, bytes []byte, keyLen int) ([]byte, error) 
 }
 
 func GenerateKeyWithSaltAndCopy(salt string, bytes []byte, keyLen int, key []byte) error {
-	tmpKey, err := GenerateKeyWithSalt(SaltUK, bytes, keyLen)
+	tmpKey, err := GenerateKeyWithSalt(salt, bytes, keyLen)
 	if err != nil {
 		return err
 	}
