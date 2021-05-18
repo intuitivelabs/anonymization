@@ -663,22 +663,22 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 }
 
 func (uri *AnonymURI) Anonymize(dst, src []byte, opts ...bool) (err error) {
-	ciphertxt := EncryptBuf()
-	if err = uri.CBCEncrypt(ciphertxt, src, opts...); err != nil {
+	var ciphertxt [maxBufSize]byte
+	if err = uri.CBCEncrypt(ciphertxt[:], src, opts...); err != nil {
 		return fmt.Errorf("cannot anonymize URI: %w", err)
 	}
-	if err = uri.Encode(dst, ciphertxt, opts...); err != nil {
+	if err = uri.Encode(dst, ciphertxt[:], opts...); err != nil {
 		return fmt.Errorf("cannot anonymize URI: %w", err)
 	}
 	return nil
 }
 
 func (uri *AnonymURI) Deanonymize(dst, src []byte) (err error) {
-	decoded := DecodeBuf()
-	if err = uri.Decode(decoded, src); err != nil {
+	var decoded [maxBufSize]byte
+	if err = uri.Decode(decoded[:], src); err != nil {
 		return fmt.Errorf("cannot deanonymize URI: %w", err)
 	}
-	if err = uri.CBCDecrypt(dst, decoded); err != nil {
+	if err = uri.CBCDecrypt(dst, decoded[:]); err != nil {
 		return fmt.Errorf("cannot deanonymize URI: %w", err)
 	}
 	return nil

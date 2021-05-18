@@ -331,6 +331,27 @@ func TestAnonymization(t *testing.T) {
 			}
 		}
 	})
+	t.Run("deanonymize", func(t *testing.T) {
+		anonUris := [...][]byte{
+			[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
+			//[]byte("sip:0GRMFO2A6IO79EKVRV033U1EKG------@C27COJGS9GCRI94B274QLGMH30------"),
+		}
+		pAnonUris := make([]sipsp.PsipURI, len(anonUris))
+		for i, s := range anonUris {
+			if err, _ := sipsp.ParseURI(s, &pAnonUris[i]); err != 0 {
+				t.Fatalf("could not parse SIP URI: %s", string(s))
+			}
+		}
+		for i, u := range pAnonUris {
+			Dbg("test case uri: %s", string(anonUris[i]))
+			au := AnonymURI(u)
+			deanon := DeanonymizeBuf()
+			if err := au.Deanonymize(deanon, anonUris[i]); err != nil {
+				t.Fatalf("could not deanonymize SIP URI %s: %s", anonUris[i], err)
+			}
+			Dbg("deanonymized uri: %v %s", deanon, string((*sipsp.PsipURI)(&au).Flat(deanon)))
+		}
+	})
 }
 
 func BenchmarkUriAnonymization(b *testing.B) {
