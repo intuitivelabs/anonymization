@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Debug string = "on"
+	Debug string = "off"
 
 	stderr *bufio.Writer = nil
 
