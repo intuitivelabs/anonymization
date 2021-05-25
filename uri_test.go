@@ -244,6 +244,7 @@ func TestAnonymization(t *testing.T) {
 	_ = NewUriCBC(iv[:], uk[:], hk[:])
 	// test case data
 	uris := [...][]byte{
+		[]byte("sip:servicevolontaireinternational@bar.com"),
 		[]byte("sip:foo:pass@bar.com"),
 		[]byte("sip:foo:pass@bar.com:5060"),
 		[]byte("sip:foo:pass@bar.com:5060;ttl=1"),
@@ -332,9 +333,82 @@ func TestAnonymization(t *testing.T) {
 		}
 	})
 	t.Run("deanonymize", func(t *testing.T) {
+		pass := "reallyworks?"
+		//pass := "foobar"
+		GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
+		// generate IV for CBC
+		GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
+		// generate key for URI's user part
+		GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
+		// generate key for URI's host part
+		GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
+		// initialize the URI CBC based encryption
+		_ = NewUriCBC(iv[:], uk[:], hk[:])
 		anonUris := [...][]byte{
-			[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
-			//[]byte("sip:0GRMFO2A6IO79EKVRV033U1EKG------@C27COJGS9GCRI94B274QLGMH30------"),
+			//[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
+			//[]byte("sip:A772DEUD3QBO8KNHHNA74OUVES------@JPPO6K1G21K9I2SIN5CV46RIT8------"),
+			//[]byte("sip:JCTP1JJ8TG2ACGR8F6KNDEG64HFT06M1DT1U78G0MJN632OQA9K0----@NPIR7UEGG8PMB8CSH9HV2FI418------"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:52451"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=TCP"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------;transport=UDP"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------;transport=UDP"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:8NIPFUI4FUGSLPKFGR259U2DP0------:5060"),
+			[]byte("sip:6EDC39UMVHBNMPSLTE6JTP10T8------:5060"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:8NIPFUI4FUGSLPKFGR259U2DP0------:5060"),
+			[]byte("sip:6EDC39UMVHBNMPSLTE6JTP10T8------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:ON38L4CVRHPFBCMT80VKDMT6C7760E94I956159PN4QG7LVC1ARK18FCNVSAGKQDDNSJKSARB72MA---@QBBQFEF02K3ME7NNRLEH8K74SO------;transport=tcp"),
+			[]byte("sip:H6H9BJD7GMFGP4JCO203D7U9714AGSL19F133EN4CAV4QEI5K0A09BD32HOGI5T657N49OR2CQHBA---@5814S48BAJN4J7I5IT78I2UP58------:6060;transport=udp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------;transport=udp"),
+			[]byte("sip:8NIPFUI4FUGSLPKFGR259U2DP0------:5060"),
+			[]byte("sip:H6H9BJD7GMFGP4JCO203D7U9714AGSL19F133EN4CAV4QEI5K0A09BD32HOGI5T657N49OR2CQHBA---@5814S48BAJN4J7I5IT78I2UP58------:6060;transport=udp"),
+			[]byte("sip:ON38L4CVRHPFBCMT80VKDMT6C7760E94I956159PN4QG7LVC1ARK18FCNVSAGKQDDNSJKSARB72MA---@QBBQFEF02K3ME7NNRLEH8K74SO------;transport=tcp"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:5060"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=udp"),
+			[]byte("sip:8VDBLC53S5QFOR9P66FBFU4QSESSSHAKPK7DL5T7040L8C0F1MAA8124N6786SO4LAD2773KORSCK---@QBBQFEF02K3ME7NNRLEH8K74SO------;transport=tcp"),
+			[]byte("sip:8QU3C0LRJNRFMMEVDVQ1MV4BV7PGTEGM1J0DCDA545FF151KUV49M01DRUPN9T5ALDOV47F0I9N8U---@5814S48BAJN4J7I5IT78I2UP58------:6060;transport=udp"),
+			[]byte("sip:F1DE003325Q2CJ31078SIHF3GS------@7HA830BV110MUUI2BQS6ND460S------;transport=tcp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------;transport=udp"),
+			[]byte("sip:QBBQFEF02K3ME7NNRLEH8K74SO------"),
+			[]byte("sip:3RM2IBPBINP51Q5LVDSLB9IR898LQKD3V4RLFSSIDIFEGOSOVRO014F9CJNOA82CI2S9NJ5N1Q584---@QBBQFEF02K3ME7NNRLEH8K74SO------;transport=tcp"),
+			[]byte("sip:7C6T7T9T0FE0DAKQ5EVNCKT2FDB98SONEEUSEEG2V4PFNU7SU26CCKK5MNVPUU1Q3F353HDJBBMEC---@5814S48BAJN4J7I5IT78I2UP58------:6060;transport=udp"),
+			[]byte("sip:N3LNAR532OE76RC1R2NU6EJA94------@D787LEH7Q5HD0B6GDBUDEH2U7O------:5072;ob"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060;transport=udp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:SFGMAPUB715DRE02K54NHL4MQ0------@A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=tcp"),
+			[]byte("sip:SFGMAPUB715DRE02K54NHL4MQ0------@A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=tcp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060;transport=udp"),
+			[]byte("sip:SFGMAPUB715DRE02K54NHL4MQ0------@A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=tcp"),
+			[]byte("sip:SFGMAPUB715DRE02K54NHL4MQ0------@A31DOJ6AEUIUPE2MFCGO5ESAH0------;transport=tcp"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------:5060"),
+			[]byte("sip:NPIR7UEGG8PMB8CSH9HV2FI418------;transport=udp"),
+			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------:5060;transport=udp"),
 		}
 		pAnonUris := make([]sipsp.PsipURI, len(anonUris))
 		for i, s := range anonUris {
