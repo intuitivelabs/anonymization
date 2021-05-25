@@ -558,7 +558,7 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	// 1. check dst len
 	if len(dst) < uri.EncodedLen(src) {
 		return fmt.Errorf("\"dst\" buffer too small for encoded URI (%d bytes required and %d bytes available)",
-			len(dst), uri.EncodedLen(src))
+			uri.EncodedLen(src), len(dst))
 	}
 	// 2. copy sip scheme
 	offs = int(uri.copyScheme(dst, src))
@@ -591,7 +591,7 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 		// update the Offs and Len of the Host
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(l)
-		Dbg("encoded eHost: %v", uri.Host.Get(dst))
+		Dbg("encoded host: %v", uri.Host.Get(dst))
 		offs += int(uri.Host.Len)
 	}
 	if onlyHost {
