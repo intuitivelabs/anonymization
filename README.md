@@ -21,5 +21,5 @@ There are 2 main modes of operation:
 `@` left handside (user and password) and `@` right handside (host information, port, parameters & headers) are anonymized in the following manner:
 
 1. one IV and two unique 16 byte (128 bits) AES-CBC keys (one for `@` lhs, one for `@` rhs) are derived from a common master key using PBKDF2 (see https://datatracker.ietf.org/doc/html/rfc2898#section-5.2)
-1. `@` lhs and `@` rhs are encrypted, separately, using 16 byte (128 bits) AES-CBC block cipher;
+1. `@` lhs and `@` rhs are encrypted, separately, using 16 byte (128 bits) AES-CBC block cipher and the keys derived at step 1.
 2. finally they are encoded using base32 encoding ("Base 32 Encoding with Extended Hex Alphabet", with `-` used as pad character). See https://datatracker.ietf.org/doc/html/rfc4648#section-7 for details on base32 encoding.
