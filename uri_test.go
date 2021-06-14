@@ -10,6 +10,40 @@ import (
 	"github.com/intuitivelabs/sipsp"
 )
 
+// static buffers for encryption, encoding, anonymization
+var (
+	encryptBuf [uriMaxBufSize]byte
+	decryptBuf [uriMaxBufSize]byte
+	encodeBuf  [uriMaxBufSize]byte
+	decodeBuf  [uriMaxBufSize]byte
+	anonBuf    [uriMaxBufSize]byte
+	deanonBuf  [uriMaxBufSize]byte
+)
+
+func EncryptBuf() []byte {
+	return encryptBuf[:]
+}
+
+func DecryptBuf() []byte {
+	return decryptBuf[:]
+}
+
+func EncodeBuf() []byte {
+	return encodeBuf[:]
+}
+
+func DecodeBuf() []byte {
+	return decodeBuf[:]
+}
+
+func AnonymizeBuf() []byte {
+	return anonBuf[:]
+}
+
+func DeanonymizeBuf() []byte {
+	return deanonBuf[:]
+}
+
 func TestBase32Codec(t *testing.T) {
 	// init
 	df := DbgOn()
