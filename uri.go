@@ -10,6 +10,10 @@ import (
 const (
 	// maximum size allowed for an SIP URI is 2KB; with padding this results in at most 4KB
 	uriMaxBufSize int = 1 << 12
+	// salt used for generating URI encryption keys
+	SaltUriIV = "1190e68008426899bc48fe7719c2ffb7"
+	SaltUriUK = "e3ab68497b69d87ddf6b5d97e24b6bb1"
+	SaltUriHK = "23c1be46c4af62a6c6be8c860e2f13bc"
 )
 
 type UriCBCMode struct {
@@ -35,16 +39,31 @@ var (
 	//uriGCM = UriGCM{}
 )
 
-func NewUriCBC(uriKeys *UriKeys) *UriCBCMode {
-	if block, err := aes.NewCipher(uriKeys.UserKey[:]); err != nil {
+// generate IV for CBC
+func GenerateUriIV(masterKey []byte, ivLen int, iv []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriIV, masterKey, ivLen, iv)
+}
+
+// generate key for URI's user part
+func GenerateURIUserKey(masterKey []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriUK, masterKey, keyLen, key)
+}
+
+// generate key for URI's host part
+func GenerateURIHostKey(masterKey []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriHK, masterKey, keyLen, key)
+}
+
+func NewUriCBC(keys *UriKeys) *UriCBCMode {
+	if block, err := aes.NewCipher(keys.UserKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.User.Init(uriKeys.IV[:], uriKeys.UserKey[:], block)
+		uriCBC.User.Init(keys.IV[:], keys.UserKey[:], block)
 	}
-	if block, err := aes.NewCipher(uriKeys.HostKey[:]); err != nil {
+	if block, err := aes.NewCipher(keys.HostKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.Host.Init(uriKeys.IV[:], uriKeys.HostKey[:], block)
+		uriCBC.Host.Init(keys.IV[:], keys.HostKey[:], block)
 	}
 	return &uriCBC
 }
@@ -61,7 +80,7 @@ func InitUriKeys(iv []byte, uk []byte, hk []byte) {
 
 func InitUriKeysFromMasterKey(masterKey []byte, keyLen int) {
 	// generate IV for CBC
-	GenerateIV(masterKey[:], EncryptionKeyLen, GetUriKeys().IV[:])
+	GenerateUriIV(masterKey[:], EncryptionKeyLen, GetUriKeys().IV[:])
 	// generate key for URI's user part
 	GenerateURIUserKey(masterKey[:], EncryptionKeyLen, GetUriKeys().UserKey[:])
 	// generate key for URI's host part
