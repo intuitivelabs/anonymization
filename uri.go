@@ -19,28 +19,57 @@ type UriCBCMode struct {
 	Host BlockModeCipher
 }
 
+type UriKeys struct {
+	// initialization vector
+	IV [EncryptionKeyLen]byte
+	// encryption key used for user info
+	UserKey [EncryptionKeyLen]byte
+	// encryption key used for host info
+	HostKey [EncryptionKeyLen]byte
+}
+
 var (
+	uriKeys = UriKeys{}
 	// URI CBC cipher
 	uriCBC = UriCBCMode{}
 	//uriGCM = UriGCM{}
 )
 
-func NewUriCBC(iv, userKey, hostKey []byte) *UriCBCMode {
-	if block, err := aes.NewCipher(userKey); err != nil {
+func NewUriCBC(uriKeys *UriKeys) *UriCBCMode {
+	if block, err := aes.NewCipher(uriKeys.UserKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.User.Init(iv, userKey, block)
+		uriCBC.User.Init(uriKeys.IV[:], uriKeys.UserKey[:], block)
 	}
-	if block, err := aes.NewCipher(hostKey); err != nil {
+	if block, err := aes.NewCipher(uriKeys.HostKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.Host.Init(iv, hostKey, block)
+		uriCBC.Host.Init(uriKeys.IV[:], uriKeys.HostKey[:], block)
 	}
 	return &uriCBC
 }
 
 func UriCBC() *UriCBCMode {
 	return &uriCBC
+}
+
+func InitUriKeys(iv []byte, uk []byte, hk []byte) {
+	copy(GetUriKeys().IV[:], iv)
+	copy(GetUriKeys().UserKey[:], uk)
+	copy(GetUriKeys().HostKey[:], hk)
+}
+
+func InitUriKeysFromMasterKey(masterKey []byte, keyLen int) {
+	// generate IV for CBC
+	GenerateIV(masterKey[:], EncryptionKeyLen, GetUriKeys().IV[:])
+	// generate key for URI's user part
+	GenerateURIUserKey(masterKey[:], EncryptionKeyLen, GetUriKeys().UserKey[:])
+	// generate key for URI's host part
+	GenerateURIHostKey(masterKey[:], EncryptionKeyLen, GetUriKeys().HostKey[:])
+}
+
+func GetUriKeys() *UriKeys {
+	return &uriKeys
 }
 
 type AnonymURI sipsp.PsipURI
