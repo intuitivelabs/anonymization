@@ -71,7 +71,8 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 	if _, err := io.ReadFull(rand.Reader, iv[:]); err != nil {
 		t.Fatalf("could not init IV: %s", err)
 	}
-	cipher := NewCallIdCBC(iv[:], key)
+	InitCallIdKeys(iv[:], key)
+	cipher := NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
 		[]byte("AB170EB876CF1542@188.74.1.5"),
