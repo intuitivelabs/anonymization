@@ -18,9 +18,9 @@ import (
 
 const (
 	SaltIpcipher = "ipcipheripcipher"
-	SaltIV       = "1190e68008426899bc48fe7719c2ffb7"
-	SaltUK       = "e3ab68497b69d87ddf6b5d97e24b6bb1"
-	SaltHK       = "23c1be46c4af62a6c6be8c860e2f13bc"
+	SaltUriIV    = "1190e68008426899bc48fe7719c2ffb7"
+	SaltUriUK    = "e3ab68497b69d87ddf6b5d97e24b6bb1"
+	SaltUriHK    = "23c1be46c4af62a6c6be8c860e2f13bc"
 	// key lengths are in bytes
 	EncryptionKeyLen     = 16
 	AuthenticationKeyLen = 32
@@ -51,17 +51,17 @@ func GenerateKeyWithSaltAndCopy(salt string, bytes []byte, keyLen int, key []byt
 
 // generate IV for CBC
 func GenerateIV(bytes []byte, ivLen int, iv []byte) error {
-	return GenerateKeyWithSaltAndCopy(SaltIV, bytes, ivLen, iv)
+	return GenerateKeyWithSaltAndCopy(SaltUriIV, bytes, ivLen, iv)
 }
 
 // generate key for URI's user part
 func GenerateURIUserKey(bytes []byte, keyLen int, key []byte) error {
-	return GenerateKeyWithSaltAndCopy(SaltUK, bytes, keyLen, key)
+	return GenerateKeyWithSaltAndCopy(SaltUriUK, bytes, keyLen, key)
 }
 
 // generate key for URI's host part
 func GenerateURIHostKey(bytes []byte, keyLen int, key []byte) error {
-	return GenerateKeyWithSaltAndCopy(SaltHK, bytes, keyLen, key)
+	return GenerateKeyWithSaltAndCopy(SaltUriHK, bytes, keyLen, key)
 }
 
 func GenerateKeyFromBytes(bytes []byte, keyLen int) []byte {
