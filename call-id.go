@@ -8,7 +8,9 @@ import (
 )
 
 type (
-	AnonymCallId sipsp.PCallIDBody
+	AnonymCallId struct {
+		PField sipsp.PField
+	}
 )
 
 const (
@@ -69,21 +71,21 @@ func CallIdCBC() *BlockModeCipher {
 }
 
 func (callId *AnonymCallId) EncodedLen() int {
-	return NewEncoding().EncodedLen(int(callId.CallID.Len))
+	return NewEncoding().EncodedLen(int(callId.PField.Len))
 }
 
 func (callId *AnonymCallId) DecodedLen() int {
-	return NewEncoding().DecodedLen(int(callId.CallID.Len))
+	return NewEncoding().DecodedLen(int(callId.PField.Len))
 }
 
 func (callId *AnonymCallId) PKCSPaddedLen(size int) (length int, err error) {
 	length = 0
 	err = nil
-	if length, err = PKCSPadLen(int(callId.CallID.Len), size); err != nil {
+	if length, err = PKCSPadLen(int(callId.PField.Len), size); err != nil {
 		err = fmt.Errorf("Call-ID padding error: %w", err)
 		return
 	}
-	length += int(callId.CallID.Len)
+	length += int(callId.PField.Len)
 	return
 }
 
@@ -102,11 +104,11 @@ func (callId *AnonymCallId) CBCEncrypt(dst, src []byte) (err error) {
 		return
 	}
 	CallIdCBC().Reset()
-	length, err := cbcEncryptToken(dst, src, callId.CallID, CallIdCBC().Encrypter)
+	length, err := cbcEncryptToken(dst, src, callId.PField, CallIdCBC().Encrypter)
 	if err != nil {
 		err = fmt.Errorf("Call-ID encryption error: %w", err)
 	}
-	callId.CallID = sipsp.PField{
+	callId.PField = sipsp.PField{
 		Offs: 0,
 		Len:  sipsp.OffsT(length),
 	}
@@ -116,11 +118,11 @@ func (callId *AnonymCallId) CBCEncrypt(dst, src []byte) (err error) {
 func (callId *AnonymCallId) CBCDecrypt(dst, src []byte) (err error) {
 	err = nil
 	CallIdCBC().Reset()
-	length, err := cbcDecryptToken(dst, src, callId.CallID, CallIdCBC().Decrypter)
+	length, err := cbcDecryptToken(dst, src, callId.PField, CallIdCBC().Decrypter)
 	if err != nil {
 		err = fmt.Errorf("cannot encrypt Call-ID: %w", err)
 	}
-	callId.CallID.Len = sipsp.OffsT(length)
+	callId.PField.Len = sipsp.OffsT(length)
 	return
 }
 
@@ -133,8 +135,8 @@ func (callId *AnonymCallId) Encode(dst, src []byte) (err error) {
 			callId.EncodedLen(), len(dst))
 		return
 	}
-	l := encodeToken(dst, src, callId.CallID, codec)
-	callId.CallID = sipsp.PField{
+	l := encodeToken(dst, src, callId.PField, codec)
+	callId.PField = sipsp.PField{
 		Offs: 0,
 		Len:  sipsp.OffsT(l),
 	}
@@ -150,8 +152,8 @@ func (callId *AnonymCallId) Decode(dst, src []byte) (err error) {
 			callId.DecodedLen(), len(dst))
 		return
 	}
-	l, _ := decodeToken(dst, src, callId.CallID, codec)
-	callId.CallID = sipsp.PField{
+	l, _ := decodeToken(dst, src, callId.PField, codec)
+	callId.PField = sipsp.PField{
 		Offs: 0,
 		Len:  sipsp.OffsT(l),
 	}
