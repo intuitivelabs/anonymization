@@ -30,6 +30,9 @@ func (bm *BlockModeCipher) Reset() {
 
 // cbcEncryptToken encrypts the token from the src byte, specified using a sipsp.PField into dst
 func cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMode) (length int, err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	Dbg("src: %v", src)
 	token := pf.Get(src)
 	// 1. copy token
 	_ = copy(dst, token)
