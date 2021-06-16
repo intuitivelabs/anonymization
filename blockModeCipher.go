@@ -32,7 +32,7 @@ func (bm *BlockModeCipher) Reset() {
 func cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMode) (length int, err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
-	Dbg("src: %v (len: %d)", src, len(src))
+	Dbg("src: %v len: %d offset: %d len: %d", src, len(src), pf.Offs, pf.Len)
 	token := pf.Get(src)
 	// 1. copy token
 	_ = copy(dst, token)
