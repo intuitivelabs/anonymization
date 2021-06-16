@@ -90,6 +90,8 @@ func (callId *AnonymCallId) PKCSPaddedLen(size int) (length int, err error) {
 }
 
 func (callId *AnonymCallId) CBCEncrypt(dst, src []byte) (err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
 	err = nil
 	blockSize := CallIdCBC().Encrypter.BlockSize()
 	// 1. check dst len
@@ -161,12 +163,14 @@ func (callId *AnonymCallId) Decode(dst, src []byte) (err error) {
 }
 
 func (callId *AnonymCallId) Anonymize(dst, src []byte) (err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
 	var ciphertxt [callIdMaxBufSize]byte
 	if err = callId.CBCEncrypt(ciphertxt[:], src); err != nil {
-		return fmt.Errorf("cannot anonymize URI: %w", err)
+		return fmt.Errorf("Call-ID anonymizing error: %w", err)
 	}
 	if err = callId.Encode(dst, ciphertxt[:]); err != nil {
-		return fmt.Errorf("cannot anonymize URI: %w", err)
+		return fmt.Errorf("Call-ID anonymizing error: %w", err)
 	}
 	return nil
 }
