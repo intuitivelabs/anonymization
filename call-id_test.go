@@ -39,7 +39,9 @@ func TestCallIdBase32Codec(t *testing.T) {
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
 			Dbg("test case Call-ID: %s", string(callIds[i]))
-			ac := AnonymCallId(c)
+			ac := AnonymCallId{
+				PField: c.CallID,
+			}
 			l := ac.EncodedLen()
 			Dbg("encoded len: %d", l)
 			encoded := make([]byte, l)
@@ -47,16 +49,16 @@ func TestCallIdBase32Codec(t *testing.T) {
 				t.Fatalf("cannot encode Call-ID %s: %s", callIds[i], err.Error())
 			}
 			Dbg("encoded Call-ID: %v (len: %d)", encoded, len(encoded))
-			Dbg("encoded Call-ID: %s", string(ac.CallID.Get(encoded)))
+			Dbg("encoded Call-ID: %s", string(ac.PField.Get(encoded)))
 			l = ac.DecodedLen()
 			decoded := make([]byte, l)
 			if err := ac.Decode(decoded, encoded); err != nil {
 				Dbg("decoded Call-ID: %v", decoded)
 				t.Fatalf("cannot decode Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg(`decoded Call-ID: %v "%s"`, ac.CallID.Get(decoded), string(ac.CallID.Get(decoded)))
-			if !bytes.Equal(callIds[i], ac.CallID.Get(decoded)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.CallID.Get(decoded)))
+			Dbg(`decoded Call-ID: %v "%s"`, ac.PField.Get(decoded), string(ac.PField.Get(decoded)))
+			if !bytes.Equal(callIds[i], ac.PField.Get(decoded)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(decoded)))
 			}
 		}
 	})
@@ -99,7 +101,9 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
 			Dbg("test case Call-ID: %s", string(callIds[i]))
-			ac := AnonymCallId(c)
+			ac := AnonymCallId{
+				PField: c.CallID,
+			}
 			l, err := ac.PKCSPaddedLen(cipher.Encrypter.BlockSize())
 			if err != nil {
 				t.Fatalf("cannot compute Call-ID pad len %s: %s", callIds[i], err.Error())
@@ -115,9 +119,9 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 				Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("decrypted Call-ID: %v %s", plaintxt, string(ac.CallID.Get(plaintxt)))
-			if !bytes.Equal(callIds[i], ac.CallID.Get(plaintxt)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.CallID.Get(plaintxt)))
+			Dbg("decrypted Call-ID: %v %s", plaintxt, string(ac.PField.Get(plaintxt)))
+			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}
 		}
 	})
