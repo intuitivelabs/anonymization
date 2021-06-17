@@ -39,7 +39,7 @@ func TestCallIdBase32Codec(t *testing.T) {
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
 			Dbg("test case Call-ID: %s", string(callIds[i]))
-			ac := AnonymCallId{
+			ac := AnonymPField{
 				PField: c.CallID,
 			}
 			l := ac.EncodedLen()
@@ -101,7 +101,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
 			Dbg("test case Call-ID: %s", string(callIds[i]))
-			ac := AnonymCallId{
+			ac := AnonymPField{
 				PField: c.CallID,
 			}
 			l, err := ac.PKCSPaddedLen(cipher.Encrypter.BlockSize())
