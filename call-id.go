@@ -42,10 +42,14 @@ func InitCallIdKeys(iv []byte, k []byte) {
 }
 
 func InitCallIdKeysFromMasterKey(masterKey []byte, keyLen int) {
+	df := DbgOn()
+	defer DbgRestore(df)
 	// generate Call-ID IV for CBC
 	GenerateCallIdIV(masterKey[:], EncryptionKeyLen, GetCallIdKeys().IV[:])
+	Dbg("Call-ID IV: %v", GetCallIdKeys().IV)
 	// generate key for Call-ID
 	GenerateCallIdKey(masterKey[:], EncryptionKeyLen, GetCallIdKeys().Key[:])
+	Dbg("Call-ID Key: %v", GetCallIdKeys().Key)
 }
 
 func NewCallIdCBC(keys *CallIdKeys) *BlockModeCipher {
