@@ -54,5 +54,11 @@ func decodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (leng
 	}
 	dToken := dPf.Get(dst)
 	length, err = codec.Decode(dToken, token)
+	dPf = sipsp.PField{
+		Offs: 0,
+		Len:  sipsp.OffsT(length),
+	}
+	dToken = dPf.Get(dst)
+	Dbg("decoded (dst) token: %v len: %d", dToken, len(dToken))
 	return
 }
