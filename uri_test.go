@@ -44,7 +44,7 @@ func DeanonymizeBuf() []byte {
 	return deanonBuf[:]
 }
 
-func TestBase32Codec(t *testing.T) {
+func TestUriBase32Codec(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -127,7 +127,7 @@ func TestBase32Codec(t *testing.T) {
 	})
 }
 
-func TestCBCEncrypt(t *testing.T) {
+func TestUriCBCEncrypt(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -258,7 +258,7 @@ func TestCBCEncrypt(t *testing.T) {
 	// clean-up
 }
 
-func TestAnonymization(t *testing.T) {
+func TestUriAnonymization(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
