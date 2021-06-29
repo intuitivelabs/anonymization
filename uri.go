@@ -2,8 +2,6 @@ package anonymization
 
 import (
 	"crypto/aes"
-	"crypto/cipher"
-	"encoding/base32"
 	"fmt"
 
 	"github.com/intuitivelabs/sipsp"
@@ -11,28 +9,12 @@ import (
 
 const (
 	// maximum size allowed for an SIP URI is 2KB; with padding this results in at most 4KB
-	maxBufSize int = 1 << 12
-	// padding character used in base32 encoding
-	pad rune = '-'
+	uriMaxBufSize int = 1 << 12
+	// salt used for generating URI encryption keys
+	SaltUriIV = "1190e68008426899bc48fe7719c2ffb7"
+	SaltUriUK = "e3ab68497b69d87ddf6b5d97e24b6bb1"
+	SaltUriHK = "23c1be46c4af62a6c6be8c860e2f13bc"
 )
-
-// static buffers for encryption, encoding, anonymization
-var (
-	encryptBuf [maxBufSize]byte
-	decryptBuf [maxBufSize]byte
-	encodeBuf  [maxBufSize]byte
-	decodeBuf  [maxBufSize]byte
-	anonBuf    [maxBufSize]byte
-	deanonBuf  [maxBufSize]byte
-)
-
-type BlockModeCipher struct {
-	IV        []byte
-	Key       []byte
-	Block     cipher.Block
-	Encrypter cipher.BlockMode
-	Decrypter cipher.BlockMode
-}
 
 type UriCBCMode struct {
 	// user part cipher (key SHOULD be different from host part cipher)
@@ -41,39 +23,47 @@ type UriCBCMode struct {
 	Host BlockModeCipher
 }
 
-func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
-	bm.Key = key
-	bm.IV = iv
-	bm.Block = block
-	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.IV)
-	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
-}
-
-func (bm *BlockModeCipher) Reset() {
-	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.IV)
-	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
+type UriKeys struct {
+	// initialization vector
+	IV [EncryptionKeyLen]byte
+	// encryption key used for user info
+	UserKey [EncryptionKeyLen]byte
+	// encryption key used for host info
+	HostKey [EncryptionKeyLen]byte
 }
 
 var (
+	uriKeys = UriKeys{}
 	// URI CBC cipher
 	uriCBC = UriCBCMode{}
 	//uriGCM = UriGCM{}
 )
 
-func NewEncoding() *base32.Encoding {
-	return base32.HexEncoding.WithPadding(pad)
+// generate IV for CBC
+func GenerateUriIV(masterKey []byte, ivLen int, iv []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriIV, masterKey, ivLen, iv)
 }
 
-func NewUriCBC(iv, userKey, hostKey []byte) *UriCBCMode {
-	if block, err := aes.NewCipher(userKey); err != nil {
+// generate key for URI's user part
+func GenerateURIUserKey(masterKey []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriUK, masterKey, keyLen, key)
+}
+
+// generate key for URI's host part
+func GenerateURIHostKey(masterKey []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltUriHK, masterKey, keyLen, key)
+}
+
+func NewUriCBC(keys *UriKeys) *UriCBCMode {
+	if block, err := aes.NewCipher(keys.UserKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.User.Init(iv, userKey, block)
+		uriCBC.User.Init(keys.IV[:], keys.UserKey[:], block)
 	}
-	if block, err := aes.NewCipher(hostKey); err != nil {
+	if block, err := aes.NewCipher(keys.HostKey[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.Host.Init(iv, hostKey, block)
+		uriCBC.Host.Init(keys.IV[:], keys.HostKey[:], block)
 	}
 	return &uriCBC
 }
@@ -82,32 +72,23 @@ func UriCBC() *UriCBCMode {
 	return &uriCBC
 }
 
-func EncryptBuf() []byte {
-	return encryptBuf[:]
+func InitUriKeys(iv []byte, uk []byte, hk []byte) {
+	copy(GetUriKeys().IV[:], iv)
+	copy(GetUriKeys().UserKey[:], uk)
+	copy(GetUriKeys().HostKey[:], hk)
 }
 
-func DecryptBuf() []byte {
-	return decryptBuf[:]
+func InitUriKeysFromMasterKey(masterKey []byte, keyLen int) {
+	// generate IV for CBC
+	GenerateUriIV(masterKey[:], EncryptionKeyLen, GetUriKeys().IV[:])
+	// generate key for URI's user part
+	GenerateURIUserKey(masterKey[:], EncryptionKeyLen, GetUriKeys().UserKey[:])
+	// generate key for URI's host part
+	GenerateURIHostKey(masterKey[:], EncryptionKeyLen, GetUriKeys().HostKey[:])
 }
 
-func EncodeBuf() []byte {
-	return encodeBuf[:]
-}
-
-func DecodeBuf() []byte {
-	return decodeBuf[:]
-}
-
-func AnonymizeBuf() []byte {
-	return anonBuf[:]
-}
-
-func DeanonymizeBuf() []byte {
-	return deanonBuf[:]
-}
-
-func pkcsPadToken(dst []byte, pf sipsp.PField, blockSize int) ([]byte, error) {
-	return PKCSPad(dst, int(pf.Offs), int(pf.Len), blockSize)
+func GetUriKeys() *UriKeys {
+	return &uriKeys
 }
 
 type AnonymURI sipsp.PsipURI
@@ -284,43 +265,6 @@ func (uri AnonymURI) PortParamsHeaders(buf []byte) []byte {
 	return buf[start:end]
 }
 
-// cbcEncryptToken encrypts the token from the src byte, specified using a sipsp.PField into dst
-func (uri *AnonymURI) cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMode) (length int, err error) {
-	token := pf.Get(src)
-	// 1. copy token
-	_ = copy(dst, token)
-	ePf := sipsp.PField{
-		Offs: sipsp.OffsT(0),
-		Len:  sipsp.OffsT(len(token)),
-	}
-	// 2. pad token
-	blockSize := encrypter.BlockSize()
-	eToken, err := pkcsPadToken(dst, ePf, blockSize)
-	if err != nil {
-		return 0, fmt.Errorf("cannot encrypt token: %w", err)
-	}
-	Dbg("padded eToken: %v", eToken)
-	// 3. encrypt token
-	encrypter.CryptBlocks(eToken, eToken)
-	Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
-	return len(eToken), nil
-}
-
-// encodeToken encodes the token specified by sipsp.PField from src buffer into dst buffer using the encoder.
-// It returns the length of the encoded token.
-func (uri *AnonymURI) encodeToken(dst, src []byte, pf sipsp.PField, encoder *base32.Encoding) (length int) {
-	token := pf.Get(src)
-	Dbg("token: %v", token)
-	length = encoder.EncodedLen(len(token))
-	ePf := sipsp.PField{
-		Offs: 0,
-		Len:  sipsp.OffsT(length),
-	}
-	eToken := ePf.Get(dst)
-	encoder.Encode(eToken, token)
-	return
-}
-
 // cbcEncryptUserInfo encrypts the URI's user info (lhs of the `@`) from src into dst starting at offset offs when there is a non-empty user info;
 // it returns the length of the encrypted user info. It returns a 0 length when there is no user info in the URI.
 func (uri *AnonymURI) cbcEncryptUserInfo(dst, src []byte, offs int) (int, error) {
@@ -330,7 +274,7 @@ func (uri *AnonymURI) cbcEncryptUserInfo(dst, src []byte, offs int) (int, error)
 		pf := sipsp.PField{}
 		pf.Set(int(uri.User.Offs), int(userEnd))
 		UriCBC().User.Reset()
-		l, err := uri.cbcEncryptToken(dst, src, pf, UriCBC().User.Encrypter)
+		l, err := cbcEncryptToken(dst, src, pf, UriCBC().User.Encrypter)
 		if err != nil {
 			return 0, fmt.Errorf("cannot encrypt user part: %w", err)
 		}
@@ -361,7 +305,7 @@ func (uri *AnonymURI) cbcEncryptHostInfo(dst, src []byte, offs int, onlyHost boo
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(end))
 		UriCBC().Host.Reset()
-		l, err = uri.cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
+		l, err = cbcEncryptToken(dst[offs:], src, pf, UriCBC().Host.Encrypter)
 		if err != nil {
 			return 0, fmt.Errorf("cannot encrypt URI: %w", err)
 		}
@@ -567,7 +511,7 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if userEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.User.Offs), int(userEnd))
-		l := uri.encodeToken(dst[uri.User.Offs:], src, pf, codec)
+		l := encodeToken(dst[uri.User.Offs:], src, pf, codec)
 		// update the length of the encoded `user`
 		uri.User.Len = sipsp.OffsT(l)
 		// `password` was encoded as part of `user`
@@ -587,7 +531,7 @@ func (uri *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(uri.Host.Offs), int(hostEnd))
-		l := uri.encodeToken(dst[offs:], src, pf, codec)
+		l := encodeToken(dst[offs:], src, pf, codec)
 		// update the Offs and Len of the Host
 		uri.Host.Offs = sipsp.OffsT(offs)
 		uri.Host.Len = sipsp.OffsT(l)
@@ -663,7 +607,7 @@ func (uri *AnonymURI) Decode(dst, src []byte) (err error) {
 }
 
 func (uri *AnonymURI) Anonymize(dst, src []byte, opts ...bool) (err error) {
-	var ciphertxt [maxBufSize]byte
+	var ciphertxt [uriMaxBufSize]byte
 	if err = uri.CBCEncrypt(ciphertxt[:], src, opts...); err != nil {
 		return fmt.Errorf("cannot anonymize URI: %w", err)
 	}
@@ -674,7 +618,7 @@ func (uri *AnonymURI) Anonymize(dst, src []byte, opts ...bool) (err error) {
 }
 
 func (uri *AnonymURI) Deanonymize(dst, src []byte) (err error) {
-	var decoded [maxBufSize]byte
+	var decoded [uriMaxBufSize]byte
 	if err = uri.Decode(decoded[:], src); err != nil {
 		return fmt.Errorf("cannot deanonymize URI: %w", err)
 	}

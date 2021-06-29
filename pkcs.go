@@ -2,6 +2,8 @@ package anonymization
 
 import (
 	"fmt"
+
+	"github.com/intuitivelabs/sipsp"
 )
 
 //This file contains functionality for padding and unpadding (removal of padding) of cryptographic blocks
@@ -86,4 +88,8 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 		return nil, fmt.Errorf("broken padding with byte 0x%x (%d) between offsets %d-%d", pad, pad, l-pad, l)
 	}
 	return buf[0 : l-pad], nil
+}
+
+func PKCSPadToken(dst []byte, pf sipsp.PField, blockSize int) ([]byte, error) {
+	return PKCSPad(dst, int(pf.Offs), int(pf.Len), blockSize)
 }

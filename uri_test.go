@@ -10,7 +10,41 @@ import (
 	"github.com/intuitivelabs/sipsp"
 )
 
-func TestBase32Codec(t *testing.T) {
+// static buffers for encryption, encoding, anonymization
+var (
+	encryptBuf [uriMaxBufSize]byte
+	decryptBuf [uriMaxBufSize]byte
+	encodeBuf  [uriMaxBufSize]byte
+	decodeBuf  [uriMaxBufSize]byte
+	anonBuf    [uriMaxBufSize]byte
+	deanonBuf  [uriMaxBufSize]byte
+)
+
+func EncryptBuf() []byte {
+	return encryptBuf[:]
+}
+
+func DecryptBuf() []byte {
+	return decryptBuf[:]
+}
+
+func EncodeBuf() []byte {
+	return encodeBuf[:]
+}
+
+func DecodeBuf() []byte {
+	return decodeBuf[:]
+}
+
+func AnonymizeBuf() []byte {
+	return anonBuf[:]
+}
+
+func DeanonymizeBuf() []byte {
+	return deanonBuf[:]
+}
+
+func TestUriBase32Codec(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -93,7 +127,7 @@ func TestBase32Codec(t *testing.T) {
 	})
 }
 
-func TestCBCEncrypt(t *testing.T) {
+func TestUriCBCEncrypt(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -103,7 +137,8 @@ func TestCBCEncrypt(t *testing.T) {
 	if _, err := io.ReadFull(rand.Reader, iv[:]); err != nil {
 		t.Fatalf("could not init IV: %s", err)
 	}
-	cipher := NewUriCBC(iv[:], ukey, hkey)
+	InitUriKeys(iv[:], ukey, hkey)
+	cipher := NewUriCBC(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:foo:pass@bar.com"),
@@ -223,25 +258,17 @@ func TestCBCEncrypt(t *testing.T) {
 	// clean-up
 }
 
-func TestAnonymization(t *testing.T) {
+func TestUriAnonymization(t *testing.T) {
 	// init
 	df := DbgOn()
 	defer DbgRestore(df)
 	var encKey [EncryptionKeyLen]byte
-	var iv [EncryptionKeyLen]byte
-	var uk [EncryptionKeyLen]byte
-	var hk [EncryptionKeyLen]byte
 	pass := "foobar"
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
-	// generate IV for CBC
-	GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
-	// generate key for URI's user part
-	GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
-	// generate key for URI's host part
-	GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
 
 	// initialize the URI CBC based encryption
-	_ = NewUriCBC(iv[:], uk[:], hk[:])
+	InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	NewUriCBC(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:servicevolontaireinternational@bar.com"),
@@ -337,13 +364,8 @@ func TestAnonymization(t *testing.T) {
 		//pass := "foobar"
 		GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 		// generate IV for CBC
-		GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
-		// generate key for URI's user part
-		GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
-		// generate key for URI's host part
-		GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
-		// initialize the URI CBC based encryption
-		_ = NewUriCBC(iv[:], uk[:], hk[:])
+		InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+		NewUriCBC(GetUriKeys())
 		anonUris := [...][]byte{
 			//[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
 			//[]byte("sip:A772DEUD3QBO8KNHHNA74OUVES------@JPPO6K1G21K9I2SIN5CV46RIT8------"),
@@ -433,20 +455,12 @@ func BenchmarkUriAnonymization(b *testing.B) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var encKey [EncryptionKeyLen]byte
-	var iv [EncryptionKeyLen]byte
-	var uk [EncryptionKeyLen]byte
-	var hk [EncryptionKeyLen]byte
 	pass := "foobar"
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
-	// generate IV for CBC
-	GenerateIV(encKey[:], EncryptionKeyLen, iv[:])
-	// generate key for URI's user part
-	GenerateURIUserKey(encKey[:], EncryptionKeyLen, uk[:])
-	// generate key for URI's host part
-	GenerateURIHostKey(encKey[:], EncryptionKeyLen, hk[:])
 
 	// initialize the URI CBC based encryption
-	_ = NewUriCBC(iv[:], uk[:], hk[:])
+	InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	NewUriCBC(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:004956768326@188.74.3.208:3894"),
