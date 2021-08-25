@@ -15,6 +15,7 @@ func TestCallIdBase32Codec(t *testing.T) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	callIds := [...][]byte{
+		[]byte(""),
 		[]byte("AB170EB876CF1542@188.74.1.5"),
 		[]byte("34358C152D2E461B@134.19.92.222"),
 		[]byte("E996A63EBD130CF4@134.19.43.69"),
@@ -77,6 +78,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 	cipher := NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
+		[]byte(""),
 		[]byte("AB170EB876CF1542@188.74.1.5"),
 		[]byte("34358C152D2E461B@134.19.92.222"),
 		[]byte("E996A63EBD130CF4@134.19.43.69"),
@@ -141,6 +143,7 @@ func TestCallIdAnonymization(t *testing.T) {
 	NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
+		[]byte(""),
 		[]byte("AB170EB876CF1542@188.74.1.5"),
 		[]byte("34358C152D2E461B@134.19.92.222"),
 		[]byte("E996A63EBD130CF4@134.19.43.69"),
@@ -168,17 +171,17 @@ func TestCallIdAnonymization(t *testing.T) {
 			ac := AnonymPField{
 				PField: c.CallID,
 			}
-			anonym := make([]byte, 4*len(callIds[i]))
+			anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
 			if err := ac.Anonymize(anonym, callIds[i]); err != nil {
 				t.Fatalf("cannot anonymize Call-ID %s: %s", callIds[i], err.Error())
 			}
 			Dbg("anonymized Call-ID: %v %s (len: %d)", ac.PField.Get(anonym), string(ac.PField.Get(anonym)), len(ac.PField.Get(anonym)))
-			plaintxt := make([]byte, 2*len(callIds[i]))
+			plaintxt := make([]byte, 2*len(callIds[i])+CallIdCBC().Encrypter.BlockSize())
 			if err := ac.Deanonymize(plaintxt, anonym); err != nil {
 				Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("deanonymized Call-ID: %v %s", plaintxt, string(ac.PField.Get(plaintxt)))
+			Dbg(`deanonymized Call-ID: %v "%s"`, plaintxt, string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}
