@@ -81,7 +81,7 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 	}
 	pad := int(buf[l-1])
 	if pad > size || pad == 0 ||
-		pad > l || (pad == 16 && l < 32) {
+		pad > l || (pad == 16 && l < 16) {
 		return nil, fmt.Errorf("invalid pad byte %d for block size %d and buffer length %d", pad, size, l)
 	}
 	if ok := isPadded(buf[l-pad:l], byte(pad)); !ok {
