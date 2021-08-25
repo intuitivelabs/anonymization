@@ -67,7 +67,7 @@ func cbcDecryptToken(dst, src []byte, pf sipsp.PField, decrypter cipher.BlockMod
 	decrypter.CryptBlocks(dToken, dToken)
 	unpadded, err := PKCSUnpad(dToken, blockSize)
 	if err != nil {
-		err = fmt.Errorf("cannot decrypt URI's user part: %w", err)
+		err = fmt.Errorf("cannot decrypt token: %w", err)
 		return
 	}
 	length = len(unpadded)
