@@ -28,6 +28,7 @@ func TestCallIdBase32Codec(t *testing.T) {
 		[]byte("b850d06d-2d87-1224-afa1-00095200ed73"),
 		[]byte("3154A63A30C3CEF7@178.201.226.73"),
 		[]byte("6E43D0571A0323EC@178.201.226.73"),
+		[]byte("3a47be62-d375a8278d51bf575997bcc342233ca8@10.1.6.1"),
 	}
 	pCallIds := make([]sipsp.PCallIDBody, len(callIds))
 	for i, s := range callIds {
@@ -91,6 +92,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 		[]byte("b850d06d-2d87-1224-afa1-00095200ed73"),
 		[]byte("3154A63A30C3CEF7@178.201.226.73"),
 		[]byte("6E43D0571A0323EC@178.201.226.73"),
+		[]byte("3a47be62-d375a8278d51bf575997bcc342233ca8@10.1.6.1"),
 	}
 	pCallIds := make([]sipsp.PCallIDBody, len(callIds))
 	for i, s := range callIds {
@@ -156,6 +158,7 @@ func TestCallIdAnonymization(t *testing.T) {
 		[]byte("b850d06d-2d87-1224-afa1-00095200ed73"),
 		[]byte("3154A63A30C3CEF7@178.201.226.73"),
 		[]byte("6E43D0571A0323EC@178.201.226.73"),
+		[]byte("3a47be62-d375a8278d51bf575997bcc342233ca8@10.1.6.1"),
 	}
 	pCallIds := make([]sipsp.PCallIDBody, len(callIds))
 	for i, s := range callIds {
