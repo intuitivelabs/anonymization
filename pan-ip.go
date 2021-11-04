@@ -80,7 +80,6 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 			mask = 0
 			newpad = pad32
 		}
-		Dbg("newpad: %v", newpad)
 
 		// convert plain into network byte order to be encrypted
 		// cco: newpad is a kind of "IV"; it is rotated with 1 bit at each iteration
@@ -88,6 +87,8 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		// cco: see also https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_block_chaining_(CBC)
 		//*(u_int32_t*)rin_input = htonl( newpad^(orig_addr&mask));
 		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig_addr&mask))
+
+		Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
 
 		// Encryption: The cipher is used as pseudorandom
 		// function. During each round, only the first bit of
