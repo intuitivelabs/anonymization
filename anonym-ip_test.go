@@ -347,3 +347,26 @@ func TestEncrypt(t *testing.T) {
 func TestDecrypt(t *testing.T) {
 	TestEncrypt(t)
 }
+
+func BenchmarkEncryptIP(b *testing.B) {
+	// set-up if needed
+	key := [16]byte{21, 34, 23, 141, 51, 164, 207, 128, 19, 10, 91, 22, 73, 144, 125, 16}
+	b.Run("IPv4, passphrase", func(b *testing.B) {
+		cases := []net.IP{
+			[]byte{1, 2, 3, 4},
+			//[]byte{198, 41, 56, 22},
+			//[]byte{22, 11, 33, 44},
+			//[]byte{255, 0, 255, 241},
+		}
+		var enc net.IP
+		enc = make([]byte, net.IPv4len)
+		b.ResetTimer()
+		for _, c := range cases {
+			for i := 0; i < b.N; i++ {
+				if err := EncryptIP(key, enc, c); err != nil {
+					b.Fatalf("encryption error %s for IP %s", err, c.String())
+				}
+			}
+		}
+	})
+}
