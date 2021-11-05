@@ -267,7 +267,7 @@ func TestUriAnonymization(t *testing.T) {
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 
 	// initialize the URI CBC based encryption
-	InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	InitUriKeysFromMasterKey(encKey[:])
 	NewUriCBC(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
@@ -364,7 +364,7 @@ func TestUriAnonymization(t *testing.T) {
 		//pass := "foobar"
 		GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 		// generate IV for CBC
-		InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+		InitUriKeysFromMasterKey(encKey[:])
 		NewUriCBC(GetUriKeys())
 		anonUris := [...][]byte{
 			//[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
@@ -459,7 +459,7 @@ func BenchmarkUriAnonymization(b *testing.B) {
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 
 	// initialize the URI CBC based encryption
-	InitUriKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	InitUriKeysFromMasterKey(encKey[:])
 	NewUriCBC(GetUriKeys())
 	// test case data
 	uris := [...][]byte{

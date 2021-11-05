@@ -78,7 +78,7 @@ func InitUriKeys(iv []byte, uk []byte, hk []byte) {
 	copy(GetUriKeys().HostKey[:], hk)
 }
 
-func InitUriKeysFromMasterKey(masterKey []byte, keyLen int) {
+func InitUriKeysFromMasterKey(masterKey []byte) {
 	// generate IV for CBC
 	GenerateUriIV(masterKey[:], EncryptionKeyLen, GetUriKeys().IV[:])
 	// generate key for URI's user part
