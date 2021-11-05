@@ -10,10 +10,7 @@ func TestPanIP(t *testing.T) {
 	// set-up if needed
 	key := [16]byte{21, 34, 23, 141, 51, 164, 207, 128, 19, 10, 91, 22, 73, 144, 125, 16}
 	iv := [16]byte{216, 152, 143, 131, 121, 121, 101, 39, 98, 87, 76, 45, 42, 132, 34, 2}
-	pan, err := NewPanIPv4(key, iv)
-	if err != nil {
-		t.Fatalf("prefix-preserving IP address anonymizer initialization error")
-	}
+	pan := GetPan4().WithKeyAndIV(key, iv)
 	t.Run("IPv4", func(t *testing.T) {
 		cases := []net.IP{
 			[]byte{24, 5, 0, 80},
@@ -42,10 +39,7 @@ func BenchmarkPanIP(b *testing.B) {
 	defer DbgRestore(df)
 	key := [16]byte{21, 34, 23, 141, 51, 164, 207, 128, 19, 10, 91, 22, 73, 144, 125, 16}
 	iv := [16]byte{216, 152, 143, 131, 121, 121, 101, 39, 98, 87, 76, 45, 42, 132, 34, 2}
-	pan, err := NewPanIPv4(key, iv)
-	if err != nil {
-		b.Fatalf("prefix-preserving IP address anonymizer initialization error")
-	}
+	pan := GetPan4().WithKeyAndIV(key, iv)
 	b.Run("IPv4", func(b *testing.B) {
 		cases := []net.IP{
 			[]byte{24, 5, 0, 80},

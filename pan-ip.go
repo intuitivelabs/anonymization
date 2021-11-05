@@ -13,29 +13,82 @@ package anonymization
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/subtle"
 	"encoding/binary"
 	"net"
+)
+
+const (
+	// salt used for generating Call-ID encryption keys
+	SaltPanIPIV  = "533ff532e4135d19bb3b994fe0ec9271"
+	SaltPanIPKey = "57b55181b65c5ea2e44f7f25bf3a7014"
 )
 
 // Prefix-preserving anonymizer for ip addresses
 // it implements cipher.Block interface
 type PanIPv4 struct {
 	block cipher.Block
-	key   [BlockSize]byte
-	iv    [BlockSize]byte
+	Key   [BlockSize]byte
+	IV    [BlockSize]byte
 	pad   [BlockSize]byte
 }
 
-func NewPanIPv4(key [BlockSize]byte, iv [BlockSize]byte) (pan *PanIPv4, err error) {
-	pan = &PanIPv4{
-		key: key,
-		iv:  iv,
-	}
-	if pan.block, err = aes.NewCipher(key[:]); err != nil {
-		return nil, err
-	}
-	pan.block.Encrypt(pan.pad[:], pan.iv[:])
+var (
+	pan4 PanIPv4
+)
+
+func NewPanIPv4(masterKey [BlockSize]byte) (pan *PanIPv4) {
+	pan = GetPan4()
+	pan.WithMasterKey(masterKey)
 	return
+}
+
+func GetPan4() *PanIPv4 {
+	return &pan4
+}
+
+func GeneratePanIPIV(masterKey []byte, ivLen int, iv []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltPanIPIV, masterKey, ivLen, iv)
+}
+
+func GeneratePanIPKey(masterKey []byte, keyLen int, key []byte) error {
+	return GenerateKeyWithSaltAndCopy(SaltPanIPKey, masterKey, keyLen, key)
+}
+
+func InitPanIPv4KeysFromMasterKey(masterKey []byte, encKey []byte, iv []byte) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	// generate IV
+	if err := GeneratePanIPIV(masterKey[:], EncryptionKeyLen, iv[:]); err != nil {
+		panic(err)
+	}
+	Dbg("IV: %v", iv[:])
+	// generate key
+	if err := GeneratePanIPKey(masterKey[:], EncryptionKeyLen, encKey[:]); err != nil {
+		panic(err)
+	}
+	Dbg("Key: %v", encKey[:])
+}
+
+func (pan *PanIPv4) WithMasterKey(key [BlockSize]byte) *PanIPv4 {
+	var err error
+	InitPanIPv4KeysFromMasterKey(key[:], pan.Key[:], pan.IV[:])
+	if pan.block, err = aes.NewCipher(pan.Key[:]); err != nil {
+		panic(err)
+	}
+	pan.block.Encrypt(pan.pad[:], pan.IV[:])
+	return pan
+}
+
+func (pan *PanIPv4) WithKeyAndIV(key [BlockSize]byte, iv [BlockSize]byte) *PanIPv4 {
+	var err error
+	subtle.ConstantTimeCopy(1, pan.Key[:], key[:])
+	subtle.ConstantTimeCopy(1, pan.IV[:], iv[:])
+	if pan.block, err = aes.NewCipher(pan.Key[:]); err != nil {
+		panic(err)
+	}
+	pan.block.Encrypt(pan.pad[:], pan.IV[:])
+	return pan
 }
 
 func (pan *PanIPv4) BlockSize() int { return BlockSize }
