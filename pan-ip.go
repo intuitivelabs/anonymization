@@ -37,7 +37,7 @@ var (
 	pan4 PanIPv4
 )
 
-func NewPanIPv4(masterKey [BlockSize]byte) (pan *PanIPv4) {
+func NewPanIPv4(masterKey []byte) (pan *PanIPv4) {
 	pan = GetPan4()
 	pan.WithMasterKey(masterKey)
 	return
@@ -70,7 +70,7 @@ func InitPanIPv4KeysFromMasterKey(masterKey []byte, encKey []byte, iv []byte) {
 	Dbg("Key: %v", encKey[:])
 }
 
-func (pan *PanIPv4) WithMasterKey(key [BlockSize]byte) *PanIPv4 {
+func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
 	var err error
 	InitPanIPv4KeysFromMasterKey(key[:], pan.Key[:], pan.IV[:])
 	if pan.block, err = aes.NewCipher(pan.Key[:]); err != nil {
