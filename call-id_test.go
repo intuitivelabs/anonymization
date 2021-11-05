@@ -141,7 +141,7 @@ func TestCallIdAnonymization(t *testing.T) {
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 
 	// initialize the URI CBC based encryption
-	InitCallIdKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	InitCallIdKeysFromMasterKey(encKey[:])
 	NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{

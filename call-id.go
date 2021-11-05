@@ -41,7 +41,7 @@ func InitCallIdKeys(iv []byte, k []byte) {
 	copy(GetCallIdKeys().Key[:], k)
 }
 
-func InitCallIdKeysFromMasterKey(masterKey []byte, keyLen int) {
+func InitCallIdKeysFromMasterKey(masterKey []byte) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	// generate Call-ID IV for CBC
