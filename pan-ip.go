@@ -24,6 +24,18 @@ const (
 	SaltPanIPKey = "57b55181b65c5ea2e44f7f25bf3a7014"
 )
 
+type BitPrefixLen int
+
+// allowed minimum bit prefix lengths;
+// all other bit prefix lengths are a multiple of the minimum bit prefix lengths
+const (
+	OneBitPrefix BitPrefixLen = 1 << iota
+	TwoBitsPrefix
+	FourBitsPrefix
+	EightBitsPrefix
+	SixteenBitsPrefix
+)
+
 // Prefix-preserving anonymizer for ip addresses
 // it implements cipher.Block interface
 type PanIPv4 struct {
@@ -31,6 +43,8 @@ type PanIPv4 struct {
 	Key   [BlockSize]byte
 	IV    [BlockSize]byte
 	pad   [BlockSize]byte
+	// prefixFactor is the shortest prefix. all bits prefixes are a multiple of the prefixFactor
+	prefixFactor BitPrefixLen
 }
 
 var (
@@ -40,6 +54,7 @@ var (
 func NewPanIPv4(masterKey []byte) (pan *PanIPv4) {
 	pan = GetPan4()
 	pan.WithMasterKey(masterKey)
+	pan.WithBitsPrefixBoundary(EightBitsPrefix)
 	return
 }
 
@@ -80,6 +95,17 @@ func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
 	return pan
 }
 
+func (pan *PanIPv4) WithBitsPrefixBoundary(b BitPrefixLen) *PanIPv4 {
+	switch b {
+	case OneBitPrefix, TwoBitsPrefix, FourBitsPrefix,
+		EightBitsPrefix, SixteenBitsPrefix:
+		pan.prefixFactor = b
+		return pan
+	default:
+		return nil
+	}
+}
+
 func (pan *PanIPv4) WithKeyAndIV(key [BlockSize]byte, iv [BlockSize]byte) *PanIPv4 {
 	var err error
 	subtle.ConstantTimeCopy(1, pan.Key[:], key[:])
@@ -118,17 +144,19 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 
 	// cco: "IV" is stored in pad
 	pad32 := binary.LittleEndian.Uint32(pan.pad[0:4])
-	Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
+	if WithDebug {
+		Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
+	}
 
 	// For each prefixes with length from 0 to 31, generate a bit
 	// using the given cipher, which is used as a pseudorandom
 	// function here. The bits generated in every rounds are combined
 	// into a pseudorandom one-time-pad.
-	for pos := 0; pos < 32; pos++ {
-
-		mask := uint32(0xffffffff << (32 - pos))
+	for pos := BitPrefixLen(0); pos < BitPrefixLen(32)/pan.prefixFactor; pos++ {
+		shift := uint32(pan.prefixFactor * pos)
+		mask := uint32(0xffffffff << (32 - shift))
 		// cco: rotate the "IV" bits
-		newpad := (pad32 << pos) | (pad32 >> (32 - pos))
+		newpad := (pad32 << shift) | (pad32 >> (32 - shift))
 		if pos == 0 {
 			mask = 0
 			newpad = pad32
@@ -141,7 +169,9 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		//*(u_int32_t*)rin_input = htonl( newpad^(orig_addr&mask));
 		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig_addr&mask))
 
-		Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
+		if WithDebug {
+			Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
+		}
 
 		// Encryption: The cipher is used as pseudorandom
 		// function. During each round, only the first bit of
@@ -151,8 +181,10 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		// treat cipher, the output of the encryptor as network byte order
 		// Combination: the bits are combined into a pseudorandom one-time-pad
 		//result |= ( (ntohl(*(u_int32_t*)cipher)) & 0x80000000) >> pos;
-		result |= (binary.BigEndian.Uint32(cipher[0:4]) & 0x80000000) >> pos
-		Dbg("result: %v", result)
+		result |= (binary.BigEndian.Uint32(cipher[0:4]) & 0xFF000000) >> shift
+		if WithDebug {
+			Dbg("result: %v", result)
+		}
 	}
 
 	// XOR the orginal address with the pseudorandom one-time-pad
@@ -178,12 +210,14 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 	orig_addr := binary.BigEndian.Uint32(src[:])
 	// cco: "IV" is stored in pad
 	pad32 := binary.LittleEndian.Uint32(pan.pad[0:4])
-	Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
-	for pos := 0; pos < 32; pos++ {
-
-		mask := uint32(0xffffffff << (32 - pos))
+	if WithDebug {
+		Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
+	}
+	for pos := BitPrefixLen(0); pos < BitPrefixLen(32)/pan.prefixFactor; pos++ {
+		shift := uint32(pan.prefixFactor * pos)
+		mask := uint32(0xffffffff << (32 - shift))
 		// cco: rotate the "IV" bits
-		newpad := (pad32 << pos) | (pad32 >> (32 - pos))
+		newpad := (pad32 << shift) | (pad32 >> (32 - shift))
 		if pos == 0 {
 			mask = 0
 			newpad = pad32
@@ -204,7 +238,7 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 		// treat cipher, the output of the encryptor as network byte order
 		// Combination: the bits are combined into a pseudorandom one-time-pad
 		//orig_addr ^= ((ntohl(*(u_int32_t*)rin_output)) & 0x80000000) >> pos;
-		orig_addr ^= (binary.BigEndian.Uint32(cipher[0:4]) & 0x80000000) >> pos
+		orig_addr ^= (binary.BigEndian.Uint32(cipher[0:4]) & 0xFF000000) >> shift
 	}
 	binary.BigEndian.PutUint32(dst, orig_addr)
 }

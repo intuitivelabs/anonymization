@@ -10,13 +10,16 @@ func TestPanIP(t *testing.T) {
 	// set-up if needed
 	key := [16]byte{21, 34, 23, 141, 51, 164, 207, 128, 19, 10, 91, 22, 73, 144, 125, 16}
 	iv := [16]byte{216, 152, 143, 131, 121, 121, 101, 39, 98, 87, 76, 45, 42, 132, 34, 2}
-	pan := GetPan4().WithKeyAndIV(key, iv)
+	pan := GetPan4().WithKeyAndIV(key, iv).WithBitsPrefixBoundary(EightBitsPrefix)
 	t.Run("IPv4", func(t *testing.T) {
 		cases := []net.IP{
 			[]byte{24, 5, 0, 80},
-			[]byte{24, 5, 56, 22},
 			[]byte{22, 11, 33, 44},
 			[]byte{255, 0, 255, 241},
+			[]byte{1, 2, 3, 4},
+			[]byte{1, 5, 6, 7},
+			[]byte{1, 2, 8, 9},
+			[]byte{1, 2, 3, 10},
 		}
 		var enc, dec net.IP
 		enc = make([]byte, net.IPv4len)
@@ -40,7 +43,24 @@ func BenchmarkPanIP(b *testing.B) {
 	key := [16]byte{21, 34, 23, 141, 51, 164, 207, 128, 19, 10, 91, 22, 73, 144, 125, 16}
 	iv := [16]byte{216, 152, 143, 131, 121, 121, 101, 39, 98, 87, 76, 45, 42, 132, 34, 2}
 	pan := GetPan4().WithKeyAndIV(key, iv)
-	b.Run("IPv4", func(b *testing.B) {
+	b.Run("IPv4 1 bit boundary", func(b *testing.B) {
+		cases := []net.IP{
+			[]byte{24, 5, 0, 80},
+			//[]byte{24, 5, 56, 22},
+			//[]byte{22, 11, 33, 44},
+			//[]byte{255, 0, 255, 241},
+		}
+		pan = GetPan4().WithBitsPrefixBoundary(OneBitPrefix)
+		var enc net.IP
+		enc = make([]byte, net.IPv4len)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, c := range cases {
+				pan.Encrypt(enc, c)
+			}
+		}
+	})
+	b.Run("IPv4 2 bits boundary", func(b *testing.B) {
 		cases := []net.IP{
 			[]byte{24, 5, 0, 80},
 			//[]byte{24, 5, 56, 22},
@@ -48,6 +68,41 @@ func BenchmarkPanIP(b *testing.B) {
 			//[]byte{255, 0, 255, 241},
 		}
 		var enc net.IP
+		pan = GetPan4().WithBitsPrefixBoundary(TwoBitsPrefix)
+		enc = make([]byte, net.IPv4len)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, c := range cases {
+				pan.Encrypt(enc, c)
+			}
+		}
+	})
+	b.Run("IPv4 4 bits boundary", func(b *testing.B) {
+		cases := []net.IP{
+			[]byte{24, 5, 0, 80},
+			//[]byte{24, 5, 56, 22},
+			//[]byte{22, 11, 33, 44},
+			//[]byte{255, 0, 255, 241},
+		}
+		var enc net.IP
+		pan = GetPan4().WithBitsPrefixBoundary(FourBitsPrefix)
+		enc = make([]byte, net.IPv4len)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, c := range cases {
+				pan.Encrypt(enc, c)
+			}
+		}
+	})
+	b.Run("IPv4 8 bits boundary", func(b *testing.B) {
+		cases := []net.IP{
+			[]byte{24, 5, 0, 80},
+			//[]byte{24, 5, 56, 22},
+			//[]byte{22, 11, 33, 44},
+			//[]byte{255, 0, 255, 241},
+		}
+		var enc net.IP
+		pan = GetPan4().WithBitsPrefixBoundary(EightBitsPrefix)
 		enc = make([]byte, net.IPv4len)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
