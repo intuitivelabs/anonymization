@@ -43,8 +43,11 @@ type PanIPv4 struct {
 	Key   [BlockSize]byte
 	IV    [BlockSize]byte
 	pad   [BlockSize]byte
-	// prefixFactor is the shortest prefix. all bits prefixes are a multiple of the prefixFactor
+	// prefixFactor is the shortest preserved bit prefix.
+	// all preserved bits prefixes are a multiple of the prefixFactor
 	prefixFactor BitPrefixLen
+	// bitmask used to get the prefix from the pseudorandom function result
+	prfMask uint32
 }
 
 var (
@@ -100,6 +103,8 @@ func (pan *PanIPv4) WithBitsPrefixBoundary(b BitPrefixLen) *PanIPv4 {
 	case OneBitPrefix, TwoBitsPrefix, FourBitsPrefix,
 		EightBitsPrefix, SixteenBitsPrefix:
 		pan.prefixFactor = b
+		// bitmask used to get the prefix from the pseudorandom function result
+		pan.prfMask = ((0xffffffff >> (32 - pan.prefixFactor)) << (32 - pan.prefixFactor))
 		return pan
 	default:
 		return nil
@@ -138,14 +143,14 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 	// cco: "IV" is stored in pad
 	copy(plain[:], pan.pad[:])
 
-	// orig_addr starts in network byte order, do all operations in
+	// orig starts in network byte order, do all operations in
 	// host byte order
-	orig_addr := binary.BigEndian.Uint32(src[:])
+	orig := binary.BigEndian.Uint32(src[:])
 
 	// cco: "IV" is stored in pad
-	pad32 := binary.LittleEndian.Uint32(pan.pad[0:4])
+	pad := binary.LittleEndian.Uint32(pan.pad[0:4])
 	if WithDebug {
-		Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
+		Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
 	}
 
 	// For each prefixes with length from 0 to 31, generate a bit
@@ -156,18 +161,18 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		shift := uint32(pan.prefixFactor * pos)
 		mask := uint32(0xffffffff << (32 - shift))
 		// cco: rotate the "IV" bits
-		newpad := (pad32 << shift) | (pad32 >> (32 - shift))
+		newpad := (pad << shift) | (pad >> (32 - shift))
 		if pos == 0 {
 			mask = 0
-			newpad = pad32
+			newpad = pad
 		}
 
 		// convert plain into network byte order to be encrypted
 		// cco: newpad is a kind of "IV"; it is rotated with 1 bit at each iteration
 		// cco: "IV" bits are XORed with the plain text like in the CBC mode
 		// cco: see also https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_block_chaining_(CBC)
-		//*(u_int32_t*)rin_input = htonl( newpad^(orig_addr&mask));
-		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig_addr&mask))
+		//*(u_int32_t*)rin_input = htonl( newpad^(orig&mask));
+		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig&mask))
 
 		if WithDebug {
 			Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
@@ -181,7 +186,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		// treat cipher, the output of the encryptor as network byte order
 		// Combination: the bits are combined into a pseudorandom one-time-pad
 		//result |= ( (ntohl(*(u_int32_t*)cipher)) & 0x80000000) >> pos;
-		result |= (binary.BigEndian.Uint32(cipher[0:4]) & 0xFF000000) >> shift
+		result |= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
 		if WithDebug {
 			Dbg("result: %v", result)
 		}
@@ -189,11 +194,13 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 
 	// XOR the orginal address with the pseudorandom one-time-pad
 	// convert result to network byte order before returning
-	//return htonl( result ^ orig_addr );
-	binary.BigEndian.PutUint32(dst, result^orig_addr)
+	//return htonl( result ^ orig );
+	binary.BigEndian.PutUint32(dst, result^orig)
 }
 
 func (pan *PanIPv4) Decrypt(dst, src []byte) {
+	df := DbgOn()
+	defer DbgRestore(df)
 	var (
 		cipher [BlockSize]byte
 		plain  [BlockSize]byte
@@ -207,28 +214,28 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 	}
 	// cco: "IV" is stored in pad
 	copy(plain[:], pan.pad[:])
-	orig_addr := binary.BigEndian.Uint32(src[:])
+	orig := binary.BigEndian.Uint32(src[:])
 	// cco: "IV" is stored in pad
-	pad32 := binary.LittleEndian.Uint32(pan.pad[0:4])
+	pad := binary.LittleEndian.Uint32(pan.pad[0:4])
 	if WithDebug {
-		Dbg("pad: %v, pad32: %v", pan.pad[0:4], pad32)
+		Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
 	}
 	for pos := BitPrefixLen(0); pos < BitPrefixLen(32)/pan.prefixFactor; pos++ {
 		shift := uint32(pan.prefixFactor * pos)
 		mask := uint32(0xffffffff << (32 - shift))
 		// cco: rotate the "IV" bits
-		newpad := (pad32 << shift) | (pad32 >> (32 - shift))
+		newpad := (pad << shift) | (pad >> (32 - shift))
 		if pos == 0 {
 			mask = 0
-			newpad = pad32
+			newpad = pad
 		}
 
 		// convert plain into network byte order to be encrypted
 		// cco: newpad is a kind of "IV"; it is rotated with 1 bit at each iteration
 		// cco: "IV" bits are XORed with the plain text like in the CBC mode
 		// cco: see also https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_block_chaining_(CBC)
-		//*(u_int32_t*)rin_input = htonl( newpad^(orig_addr&mask));
-		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig_addr&mask))
+		//*(u_int32_t*)rin_input = htonl( newpad^(orig&mask));
+		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig&mask))
 
 		// Encryption: The cipher is used as pseudorandom
 		// function. During each round, only the first bit of
@@ -237,8 +244,11 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 
 		// treat cipher, the output of the encryptor as network byte order
 		// Combination: the bits are combined into a pseudorandom one-time-pad
-		//orig_addr ^= ((ntohl(*(u_int32_t*)rin_output)) & 0x80000000) >> pos;
-		orig_addr ^= (binary.BigEndian.Uint32(cipher[0:4]) & 0xFF000000) >> shift
+		//orig ^= ((ntohl(*(u_int32_t*)rin_output)) & 0x80000000) >> pos;
+		orig ^= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
+		if WithDebug {
+			Dbg("newpad: %v, plain: %v, cipher: %v, orig: %v", newpad, plain, cipher, orig)
+		}
 	}
-	binary.BigEndian.PutUint32(dst, orig_addr)
+	binary.BigEndian.PutUint32(dst, orig)
 }
