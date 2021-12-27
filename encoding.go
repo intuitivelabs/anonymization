@@ -22,7 +22,7 @@ func encodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (leng
 	df := DbgOn()
 	defer DbgRestore(df)
 	token := pf.Get(src)
-	Dbg("token: %v", token)
+	_ = WithDebug && Dbg("token: %v", token)
 	length = codec.EncodedLen(len(token))
 	ePf := sipsp.PField{
 		Offs: 0,
@@ -41,7 +41,7 @@ func decodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (leng
 	length = 0
 	err = nil
 	token := pf.Get(src)
-	Dbg("encoded (src) token: %v", token)
+	_ = WithDebug && Dbg("encoded (src) token: %v", token)
 	length = codec.DecodedLen(len(token))
 	if len(dst) < length {
 		err = fmt.Errorf(`"dst" buffer to small for decoded data (%d bytes required and %d bytes available)`,
@@ -59,6 +59,6 @@ func decodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (leng
 		Len:  sipsp.OffsT(length),
 	}
 	dToken = dPf.Get(dst)
-	Dbg("decoded (dst) token: %v len: %d", dToken, len(dToken))
+	_ = WithDebug && Dbg("decoded (dst) token: %v len: %d", dToken, len(dToken))
 	return
 }

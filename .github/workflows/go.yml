@@ -3,7 +3,8 @@ name: Go
 on:
   push:
   pull_request:
-    branches: [ master ]
+    types: [closed]
+  workflow_dispatch:
 
 jobs:
 
@@ -22,3 +23,9 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+    - name: Benchmark prefix preserving IP address encryption
+      run: go test -bench BenchmarkPanIp* -run=^$
+    
+    - name: Benchmark ipcipher IP address encryption
+      run: go test -bench BenchmarkEncrypt* -run=^$

@@ -161,7 +161,7 @@ func TestPKCSPad(t *testing.T) {
 		df := DbgOff()
 		defer DbgRestore(df)
 		for i, pair := range oneBlockPairs {
-			Dbg("i: %d, padded: %v", i, pair.padded)
+			_ = WithDebug && Dbg("i: %d, padded: %v", i, pair.padded)
 			if u, err := PKCSUnpad(pair.padded, 16); err != nil {
 				t.Fatalf("unpadding error: %s", err)
 			} else if !bytes.Equal(u, pair.unpadded[:16-1-i]) {
@@ -173,7 +173,7 @@ func TestPKCSPad(t *testing.T) {
 		df := DbgOff()
 		defer DbgRestore(df)
 		for i, pair := range oneBlockPairs {
-			Dbg("i: %d, padded: %v", i, pair.padded)
+			_ = WithDebug && Dbg("i: %d, padded: %v", i, pair.padded)
 			if p, err := PKCSPad(pair.unpadded, 0, len(pair.unpadded)-1-i, 16); err != nil {
 				t.Fatalf("padding error: %s", err)
 			} else if !bytes.Equal(p[0:16], pair.padded) {
@@ -224,7 +224,7 @@ func TestPKCSPad(t *testing.T) {
 		df := DbgOff()
 		defer DbgRestore(df)
 		for i, pair := range manyBlockPairs {
-			Dbg("i: %d, padded: %v", i, pair.padded)
+			_ = WithDebug && Dbg("i: %d, padded: %v", i, pair.padded)
 			u, err := PKCSUnpad(pair.padded, 16)
 			if err != nil {
 				t.Fatalf("unpadding error: %s", err)
@@ -238,7 +238,7 @@ func TestPKCSPad(t *testing.T) {
 	})
 	t.Run("broken padding", func(t *testing.T) {
 		for _, b := range broken {
-			Dbg("block: %v", b)
+			_ = WithDebug && Dbg("block: %v", b)
 			if _, err := PKCSUnpad(b, 16); err == nil {
 				t.Fatalf("expecting error while unpadding %v", b)
 			}

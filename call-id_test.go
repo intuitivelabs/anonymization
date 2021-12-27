@@ -40,25 +40,25 @@ func TestCallIdBase32Codec(t *testing.T) {
 	// tests
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
-			Dbg("test case Call-ID: %s", string(callIds[i]))
+			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
 				PField: c.CallID,
 			}
 			l := ac.EncodedLen()
-			Dbg("encoded len: %d", l)
+			_ = WithDebug && Dbg("encoded len: %d", l)
 			encoded := make([]byte, l)
 			if err := ac.Encode(encoded, callIds[i]); err != nil {
 				t.Fatalf("cannot encode Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("encoded Call-ID: %v (len: %d)", encoded, len(encoded))
-			Dbg("encoded Call-ID: %s", string(ac.PField.Get(encoded)))
+			_ = WithDebug && Dbg("encoded Call-ID: %v (len: %d)", encoded, len(encoded))
+			_ = WithDebug && Dbg("encoded Call-ID: %s", string(ac.PField.Get(encoded)))
 			l = ac.DecodedLen()
 			decoded := make([]byte, l)
 			if err := ac.Decode(decoded, encoded); err != nil {
-				Dbg("decoded Call-ID: %v", decoded)
+				_ = WithDebug && Dbg("decoded Call-ID: %v", decoded)
 				t.Fatalf("cannot decode Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg(`decoded Call-ID: %v "%s"`, ac.PField.Get(decoded), string(ac.PField.Get(decoded)))
+			_ = WithDebug && Dbg(`decoded Call-ID: %v "%s"`, ac.PField.Get(decoded), string(ac.PField.Get(decoded)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(decoded)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(decoded)))
 			}
@@ -104,7 +104,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 	// tests
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
-			Dbg("test case Call-ID: %s", string(callIds[i]))
+			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
 				PField: c.CallID,
 			}
@@ -112,18 +112,18 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot compute Call-ID pad len %s: %s", callIds[i], err.Error())
 			}
-			Dbg("padded len: %d", l)
+			_ = WithDebug && Dbg("padded len: %d", l)
 			ciphertxt := make([]byte, l)
 			if err := ac.CBCEncrypt(ciphertxt, callIds[i]); err != nil {
 				t.Fatalf("cannot encrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("encrypted Call-ID: %v (len: %d)", ciphertxt, len(ciphertxt))
+			_ = WithDebug && Dbg("encrypted Call-ID: %v (len: %d)", ciphertxt, len(ciphertxt))
 			plaintxt := make([]byte, len(ciphertxt))
 			if err := ac.CBCDecrypt(plaintxt, ciphertxt); err != nil {
-				Dbg("decrypted Call-ID: %v", plaintxt)
+				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("decrypted Call-ID: %v %s", plaintxt, string(ac.PField.Get(plaintxt)))
+			_ = WithDebug && Dbg("decrypted Call-ID: %v %s", plaintxt, string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}
@@ -141,7 +141,7 @@ func TestCallIdAnonymization(t *testing.T) {
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 
 	// initialize the URI CBC based encryption
-	InitCallIdKeysFromMasterKey(encKey[:], EncryptionKeyLen)
+	InitCallIdKeysFromMasterKey(encKey[:])
 	NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
@@ -170,7 +170,7 @@ func TestCallIdAnonymization(t *testing.T) {
 	// tests
 	t.Run("dynamic memory", func(t *testing.T) {
 		for i, c := range pCallIds {
-			Dbg("test case Call-ID: %s", string(callIds[i]))
+			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
 				PField: c.CallID,
 			}
@@ -178,13 +178,13 @@ func TestCallIdAnonymization(t *testing.T) {
 			if err := ac.Anonymize(anonym, callIds[i]); err != nil {
 				t.Fatalf("cannot anonymize Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg("anonymized Call-ID: %v %s (len: %d)", ac.PField.Get(anonym), string(ac.PField.Get(anonym)), len(ac.PField.Get(anonym)))
+			_ = WithDebug && Dbg("anonymized Call-ID: %v %s (len: %d)", ac.PField.Get(anonym), string(ac.PField.Get(anonym)), len(ac.PField.Get(anonym)))
 			plaintxt := make([]byte, 2*len(callIds[i])+CallIdCBC().Encrypter.BlockSize())
 			if err := ac.Deanonymize(plaintxt, anonym); err != nil {
-				Dbg("decrypted Call-ID: %v", plaintxt)
+				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			Dbg(`deanonymized Call-ID: %v "%s"`, plaintxt, string(ac.PField.Get(plaintxt)))
+			_ = WithDebug && Dbg(`deanonymized Call-ID: %v "%s"`, plaintxt, string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}

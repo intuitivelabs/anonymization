@@ -8,6 +8,7 @@ GO_SRC := $(wildcard *.go)
 
 ifeq ($(debug),on)
 	LDFLAGS := -ldflags="-X github.com/intuitivelabs/anonymization.Debug=on"
+	TAGS := -tags debug
 endif
 
 ifdef tests
@@ -17,10 +18,10 @@ endif
 all: build
 
 test: $(GO_SRC)
-	go test $(LDFLAGS) $(RUNFLAGS)
+	go test $(TAGS) $(LDFLAGS) $(RUNFLAGS)
 
 build: $(GO_SRC)
-	@go build $(LDFLAGS) ./...
+	@go build $(TAGS) $(LDFLAGS) ./...
 
 install: $(GO_SRC)
 	@go install

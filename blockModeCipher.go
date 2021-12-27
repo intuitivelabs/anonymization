@@ -32,7 +32,7 @@ func (bm *BlockModeCipher) Reset() {
 func cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMode) (length int, err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
-	Dbg("src: %v len: %d offset: %d len: %d", src, len(src), pf.Offs, pf.Len)
+	_ = WithDebug && Dbg("src: %v len: %d offset: %d len: %d", src, len(src), pf.Offs, pf.Len)
 	token := pf.Get(src)
 	// 1. copy token
 	_ = copy(dst, token)
@@ -46,10 +46,10 @@ func cbcEncryptToken(dst, src []byte, pf sipsp.PField, encrypter cipher.BlockMod
 	if err != nil {
 		return 0, fmt.Errorf("token encryption error: %w", err)
 	}
-	Dbg("padded eToken: %v", eToken)
+	_ = WithDebug && Dbg("padded eToken: %v", eToken)
 	// 3. encrypt token
 	encrypter.CryptBlocks(eToken, eToken)
-	Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
+	_ = WithDebug && Dbg("encrypted eToken: %v (len: %d)", eToken, len(eToken))
 	return len(eToken), nil
 }
 

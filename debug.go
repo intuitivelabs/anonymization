@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Debug string = "off"
+	Debug string = "on"
 
 	stderr *bufio.Writer = nil
 
@@ -52,7 +52,7 @@ func DbgOff() bool {
 	return prev
 }
 
-func Dbg(format string, args ...interface{}) {
+func Dbg(format string, args ...interface{}) bool {
 	if dbgFlag {
 		if stderr == nil {
 			stderr = bufio.NewWriter(os.Stderr)
@@ -64,11 +64,11 @@ func Dbg(format string, args ...interface{}) {
 		}()
 		n := runtime.Callers(2, callers[:])
 		if n == 0 {
-			return
+			return true
 		}
 		frames := runtime.CallersFrames(callers[:])
 		if frames == nil {
-			return
+			return true
 		}
 		frame, _ := frames.Next()
 		name := frame.Func.Name()
@@ -80,4 +80,5 @@ func Dbg(format string, args ...interface{}) {
 		fln := fmt.Sprintf("%s:%d, %s: ", file, line, name)
 		msg = fln + msg
 	}
+	return true
 }
