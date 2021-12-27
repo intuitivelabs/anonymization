@@ -80,12 +80,12 @@ func InitPanIPv4KeysFromMasterKey(masterKey []byte, encKey []byte, iv []byte) {
 	if err := GeneratePanIPIV(masterKey[:], EncryptionKeyLen, iv[:]); err != nil {
 		panic(err)
 	}
-	Dbg("IV: %v", iv[:])
+	_ = WithDebug && Dbg("IV: %v", iv[:])
 	// generate key
 	if err := GeneratePanIPKey(masterKey[:], EncryptionKeyLen, encKey[:]); err != nil {
 		panic(err)
 	}
-	Dbg("Key: %v", encKey[:])
+	_ = WithDebug && Dbg("Key: %v", encKey[:])
 }
 
 func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
@@ -149,9 +149,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 
 	// cco: "IV" is stored in pad
 	pad := binary.LittleEndian.Uint32(pan.pad[0:4])
-	if WithDebug {
-		Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
-	}
+	_ = WithDebug && Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
 
 	// For each prefixes with length from 0 to 31, generate a bit
 	// using the given cipher, which is used as a pseudorandom
@@ -174,9 +172,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		//*(u_int32_t*)rin_input = htonl( newpad^(orig&mask));
 		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig&mask))
 
-		if WithDebug {
-			Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
-		}
+		_ = WithDebug && Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
 
 		// Encryption: The cipher is used as pseudorandom
 		// function. During each round, only the first bit of
@@ -187,9 +183,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		// Combination: the bits are combined into a pseudorandom one-time-pad
 		//result |= ( (ntohl(*(u_int32_t*)cipher)) & 0x80000000) >> pos;
 		result |= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
-		if WithDebug {
-			Dbg("result: %v", result)
-		}
+		_ = WithDebug && Dbg("result: %v", result)
 	}
 
 	// XOR the orginal address with the pseudorandom one-time-pad
@@ -217,9 +211,7 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 	orig := binary.BigEndian.Uint32(src[:])
 	// cco: "IV" is stored in pad
 	pad := binary.LittleEndian.Uint32(pan.pad[0:4])
-	if WithDebug {
-		Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
-	}
+	_ = WithDebug && Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
 	for pos := BitPrefixLen(0); pos < BitPrefixLen(32)/pan.prefixFactor; pos++ {
 		shift := uint32(pan.prefixFactor * pos)
 		mask := uint32(0xffffffff << (32 - shift))
@@ -246,9 +238,7 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 		// Combination: the bits are combined into a pseudorandom one-time-pad
 		//orig ^= ((ntohl(*(u_int32_t*)rin_output)) & 0x80000000) >> pos;
 		orig ^= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
-		if WithDebug {
-			Dbg("newpad: %v, plain: %v, cipher: %v, orig: %v", newpad, plain, cipher, orig)
-		}
+		_ = WithDebug && Dbg("newpad: %v, plain: %v, cipher: %v, orig: %v", newpad, plain, cipher, orig)
 	}
 	binary.BigEndian.PutUint32(dst, orig)
 }
