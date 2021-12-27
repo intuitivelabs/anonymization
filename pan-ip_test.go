@@ -47,6 +47,7 @@ func TestPanIPv4(t *testing.T) {
 			[]byte{1, 5, 6, 7},
 			[]byte{1, 2, 8, 9},
 			[]byte{1, 2, 3, 10},
+			[]byte{85, 2, 3, 10},
 		}
 		pan := GetPan4().WithMasterKey(encKey[:]).WithBitsPrefixBoundary(EightBitsPrefix)
 		enc = make([]byte, net.IPv4len)
