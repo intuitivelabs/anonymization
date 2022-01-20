@@ -15,6 +15,7 @@ import (
 	"crypto/cipher"
 	"crypto/subtle"
 	"encoding/binary"
+	"fmt"
 	"net"
 )
 
@@ -145,6 +146,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 
 	// orig starts in network byte order, do all operations in
 	// host byte order
+	_ = WithDebug && Dbg("src: %v", src)
 	orig := binary.BigEndian.Uint32(src[:])
 
 	// cco: "IV" is stored in pad
@@ -172,7 +174,7 @@ func (pan *PanIPv4) Encrypt(dst, src []byte) {
 		//*(u_int32_t*)rin_input = htonl( newpad^(orig&mask));
 		binary.BigEndian.PutUint32(plain[0:4], newpad^(orig&mask))
 
-		_ = WithDebug && Dbg("newpad: %v, plain: %v", newpad, plain[0:4])
+		_ = WithDebug && Dbg("newpad: %x, orig: %x, mask: %x, plain: %v", newpad, orig, mask, plain[0:4])
 
 		// Encryption: The cipher is used as pseudorandom
 		// function. During each round, only the first bit of
@@ -241,4 +243,39 @@ func (pan *PanIPv4) Decrypt(dst, src []byte) {
 		_ = WithDebug && Dbg("newpad: %v, plain: %v, cipher: %v, orig: %v", newpad, plain, cipher, orig)
 	}
 	binary.BigEndian.PutUint32(dst, orig)
+}
+
+func (pan *PanIPv4) DecryptStr(src string) (dst string, err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	var dstIP, srcIP net.IP
+	err = nil
+	dst = ""
+	dstIP = make([]byte, net.IPv4len)
+	srcIP = net.ParseIP(src).To4()
+	if srcIP == nil {
+		err = fmt.Errorf("anonymization/PanIPv4: %s not an IPv4 address", src)
+		return
+	}
+	pan.Decrypt(dstIP, srcIP)
+	dst = dstIP.String()
+	return
+}
+
+func (pan *PanIPv4) EncryptStr(src string) (dst string, err error) {
+	df := DbgOn()
+	defer DbgRestore(df)
+	var dstIP, srcIP net.IP
+	err = nil
+	dst = ""
+	dstIP = make([]byte, net.IPv4len)
+	srcIP = net.ParseIP(src).To4()
+	_ = WithDebug && Dbg("srcIP: %v", srcIP)
+	if srcIP == nil {
+		err = fmt.Errorf("anonymization/PanIPv4: %s not an IPv4 address", src)
+		return
+	}
+	pan.Encrypt(dstIP, srcIP)
+	dst = dstIP.String()
+	return
 }
