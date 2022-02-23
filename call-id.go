@@ -52,6 +52,11 @@ func InitCallIdKeysFromMasterKey(masterKey []byte) {
 	_ = WithDebug && Dbg("Call-ID Key: %v", GetCallIdKeys().Key)
 }
 
+func NewCallIdCBCWithMasterKey(masterKey []byte) *BlockModeCipher {
+	InitCallIdKeysFromMasterKey(masterKey)
+	return NewCallIdCBC(GetCallIdKeys())
+}
+
 func NewCallIdCBC(keys *CallIdKeys) *BlockModeCipher {
 	if block, err := aes.NewCipher(keys.Key[:]); err != nil {
 		panic(err)
