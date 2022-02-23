@@ -126,3 +126,16 @@ func (pField *AnonymPField) Deanonymize(dst, src []byte) (err error) {
 	}
 	return nil
 }
+
+func AnonymizePField(dst, src []byte) ([]byte, error) {
+	ac := AnonymPField{
+		PField: sipsp.PField{
+			Offs: 0,
+			Len:  sipsp.OffsT(len(src)),
+		},
+	}
+	if err := ac.Anonymize(dst, src); err != nil {
+		return nil, err
+	}
+	return ac.PField.Get(dst), nil
+}
