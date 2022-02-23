@@ -54,6 +54,11 @@ func GenerateURIHostKey(masterKey []byte, keyLen int, key []byte) error {
 	return GenerateKeyWithSaltAndCopy(SaltUriHK, masterKey, keyLen, key)
 }
 
+func NewUriCBCWithMasterKey(masterKey []byte) *UriCBCMode {
+	InitUriKeysFromMasterKey(masterKey)
+	return NewUriCBC(GetUriKeys())
+}
+
 func NewUriCBC(keys *UriKeys) *UriCBCMode {
 	if block, err := aes.NewCipher(keys.UserKey[:]); err != nil {
 		panic(err)
