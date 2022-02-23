@@ -632,3 +632,16 @@ func (uri *AnonymURI) Deanonymize(dst, src []byte) (err error) {
 	}
 	return nil
 }
+
+func AnonymizeURI(dst, src []byte, opts ...bool) ([]byte, error) {
+	var uri sipsp.PsipURI
+
+	if err, _ := sipsp.ParseURI(src, &uri); err != 0 {
+		return nil, err
+	}
+	au := AnonymURI(uri)
+	if err := au.Anonymize(dst, src, true); err != nil {
+		return nil, err
+	}
+	return (&uri).Flat(dst), nil
+}
