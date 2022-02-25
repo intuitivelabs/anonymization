@@ -107,6 +107,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
 				PField: c.CallID,
+				CBC:    *cipher,
 			}
 			l, err := ac.PKCSPaddedLen(cipher.Encrypter.BlockSize())
 			if err != nil {
@@ -142,7 +143,7 @@ func TestCallIdAnonymization(t *testing.T) {
 
 	// initialize the URI CBC based encryption
 	InitCallIdKeysFromMasterKey(encKey[:])
-	NewCallIdCBC(GetCallIdKeys())
+	cipher := NewCallIdCBC(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
 		[]byte(""),
@@ -173,6 +174,7 @@ func TestCallIdAnonymization(t *testing.T) {
 			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
 				PField: c.CallID,
+				CBC:    *cipher,
 			}
 			anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
 			if err := ac.Anonymize(anonym, callIds[i]); err != nil {

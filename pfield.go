@@ -5,11 +5,16 @@ import (
 	"github.com/intuitivelabs/sipsp"
 )
 
-type (
-	AnonymPField struct {
-		PField sipsp.PField
-	}
-)
+type AnonymPField struct {
+	PField sipsp.PField
+	CBC    BlockModeCipher
+}
+
+func NewAnonymCallId(key []byte) *AnonymPField {
+	a := AnonymPField{}
+	a.CBC = *NewCallIdCBCWithMasterKey(key)
+	return &a
+}
 
 func (callId *AnonymPField) EncodedLen() int {
 	return NewEncoding().EncodedLen(int(callId.PField.Len))
@@ -34,7 +39,7 @@ func (pField *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	err = nil
-	blockSize := CallIdCBC().Encrypter.BlockSize()
+	blockSize := pField.CBC.Encrypter.BlockSize()
 	// 1. check dst len
 	paddedLen, err := pField.PKCSPaddedLen(blockSize)
 	if err != nil {
@@ -46,8 +51,8 @@ func (pField *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 			len(dst), paddedLen+1)
 		return
 	}
-	CallIdCBC().Reset()
-	length, err := cbcEncryptToken(dst, src, pField.PField, CallIdCBC().Encrypter)
+	pField.CBC.Reset()
+	length, err := cbcEncryptToken(dst, src, pField.PField, pField.CBC.Encrypter)
 	if err != nil {
 		err = fmt.Errorf("Call-ID encryption error: %w", err)
 	}
@@ -60,8 +65,8 @@ func (pField *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 
 func (pField *AnonymPField) CBCDecrypt(dst, src []byte) (err error) {
 	err = nil
-	CallIdCBC().Reset()
-	length, err := cbcDecryptToken(dst, src, pField.PField, CallIdCBC().Decrypter)
+	pField.CBC.Reset()
+	length, err := cbcDecryptToken(dst, src, pField.PField, pField.CBC.Decrypter)
 	if err != nil {
 		err = fmt.Errorf("cannot encrypt Call-ID: %w", err)
 	}
