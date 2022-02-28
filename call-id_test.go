@@ -177,12 +177,12 @@ func TestCallIdAnonymization(t *testing.T) {
 				CBC:    *cipher,
 			}
 			anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
-			if err := ac.Anonymize(anonym, callIds[i]); err != nil {
+			if _, err := ac.Anonymize(anonym, callIds[i]); err != nil {
 				t.Fatalf("cannot anonymize Call-ID %s: %s", callIds[i], err.Error())
 			}
 			_ = WithDebug && Dbg("anonymized Call-ID: %v %s (len: %d)", ac.PField.Get(anonym), string(ac.PField.Get(anonym)), len(ac.PField.Get(anonym)))
 			plaintxt := make([]byte, 2*len(callIds[i])+CallIdCBC().Encrypter.BlockSize())
-			if err := ac.Deanonymize(plaintxt, anonym); err != nil {
+			if _, err := ac.Deanonymize(plaintxt, anonym); err != nil {
 				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
