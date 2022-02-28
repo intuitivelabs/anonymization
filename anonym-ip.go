@@ -59,6 +59,13 @@ func (c *Ipcipher) Encrypt(dst, src []byte) {
 	return
 }
 
+func (c *Ipcipher) EncryptIPv6Str(src string) (dst string, err error) {
+	if dst, err = EncryptedIPv6String(c.key, src); err != nil {
+		return "", err
+	}
+	return dst, nil
+}
+
 func (c *Ipcipher) Decrypt(dst, src []byte) {
 	if err := DecryptIP(c.key, dst, src); err != nil {
 		panic("anonymization: decrypt error")
@@ -257,6 +264,22 @@ func DecryptedIP(key [BlockSize]byte, encryptedIP net.IP) (IP net.IP, err error)
 		IP, err = decryptedIPv6(key, encryptedIP)
 	} else {
 		err = ErrBrokenIP
+	}
+	return
+}
+
+// EncryptedIPv6 returns the encrypted IPv6 address as a string
+func EncryptedIPv6String(key [BlockSize]byte, plain string) (encrypted string, err error) {
+	encrypted = ""
+	var IP net.IP
+	plainIP := net.ParseIP(plain)
+	if plainIP.To16() != nil {
+		IP, err = encryptedIPv6(key, plainIP)
+	} else {
+		err = ErrBrokenIP
+	}
+	if err == nil {
+		encrypted = IP.String()
 	}
 	return
 }
