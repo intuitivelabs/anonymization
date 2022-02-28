@@ -11,8 +11,8 @@ type Anonymizer struct {
 	Validator Validator
 	Ipcipher  *Ipcipher
 	Pan       *PanIPv4
-	Uri       *UriCBCMode
-	CallId    *BlockModeCipher
+	Uri       *AnonymURI
+	CallId    *AnonymPField
 }
 
 func NewAnonymizerWithPassphrase(salt, passphrase string) (*Anonymizer, error) {
@@ -64,10 +64,10 @@ func NewAnonymizer(salt string, key []byte) (*Anonymizer, error) {
 	anonymizer.Pan = NewPanIPv4(encKey[:])
 
 	// initialize the URI CBC based encryption
-	anonymizer.Uri = NewUriCBCWithMasterKey(encKey[:])
+	anonymizer.Uri = NewAnonymURI(encKey[:])
 
 	// initialize the Call-ID CBC based encryption
-	anonymizer.CallId = NewCallIdCBCWithMasterKey(encKey[:])
+	anonymizer.CallId = NewAnonymCallId(encKey[:])
 
 	return &anonymizer, nil
 }
