@@ -113,6 +113,7 @@ func (apf *AnonymPField) Anonymize(dst, src []byte) ([]byte, error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var ciphertxt [callIdMaxBufSize]byte
+	apf.PField.Set(0, len(src))
 	if err := apf.CBCEncrypt(ciphertxt[:], src); err != nil {
 		return nil, fmt.Errorf("Call-ID anonymizing error: %w", err)
 	}
@@ -124,6 +125,7 @@ func (apf *AnonymPField) Anonymize(dst, src []byte) ([]byte, error) {
 
 func (apf *AnonymPField) Deanonymize(dst, src []byte) ([]byte, error) {
 	var decoded [callIdMaxBufSize]byte
+	apf.PField.Set(0, len(src))
 	if err := apf.Decode(decoded[:], src); err != nil {
 		return nil, fmt.Errorf("cannot deanonymize Call-ID: %w", err)
 	}
