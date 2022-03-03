@@ -66,6 +66,13 @@ func (c *Ipcipher) EncryptIPv6Str(src string) (dst string, err error) {
 	return dst, nil
 }
 
+func (c *Ipcipher) DecryptIPv6Str(src string) (dst string, err error) {
+	if dst, err = DecryptedIPv6String(c.key, src); err != nil {
+		return "", err
+	}
+	return dst, nil
+}
+
 func (c *Ipcipher) Decrypt(dst, src []byte) {
 	if err := DecryptIP(c.key, dst, src); err != nil {
 		panic("anonymization: decrypt error")
