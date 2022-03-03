@@ -284,6 +284,22 @@ func EncryptedIPv6String(key [BlockSize]byte, plain string) (encrypted string, e
 	return
 }
 
+// DecryptedIPv6 returns the encrypted IPv6 address as a string
+func DecryptedIPv6String(key [BlockSize]byte, encrypted string) (decrypted string, err error) {
+	decrypted = ""
+	var IP net.IP
+	encryptedIP := net.ParseIP(encrypted)
+	if encryptedIP.To16() != nil {
+		IP, err = decryptedIPv6(key, encryptedIP)
+	} else {
+		err = ErrBrokenIP
+	}
+	if err == nil {
+		decrypted = IP.String()
+	}
+	return
+}
+
 func DecryptedIPString(key [BlockSize]byte, encrypted string) (decrypted string, err error) {
 	decrypted = ""
 	var IP net.IP
