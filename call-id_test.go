@@ -182,9 +182,9 @@ func TestCallIdAnonymization(t *testing.T) {
 			}
 			_ = WithDebug && Dbg("anonymized Call-ID: %v %s (len: %d)", ac.PField.Get(anonym), string(ac.PField.Get(anonym)), len(ac.PField.Get(anonym)))
 			plaintxt := make([]byte, 2*len(callIds[i])+CallIdCBC().Encrypter.BlockSize())
-			if _, err := ac.Deanonymize(plaintxt, anonym); err != nil {
+			if _, err := ac.Deanonymize(plaintxt, ac.PField.Get(anonym)); err != nil {
 				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
-				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
+				t.Fatalf("cannot decrypt Call-ID %s: %s", anonym, err.Error())
 			}
 			_ = WithDebug && Dbg(`deanonymized Call-ID: %v "%s"`, plaintxt, string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
