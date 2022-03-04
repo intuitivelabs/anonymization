@@ -35,7 +35,6 @@ func NewAnonymizerWithKey(salt, key string) (*Anonymizer, error) {
 }
 
 func NewAnonymizer(salt string, key []byte) (*Anonymizer, error) {
-	var encKey [EncryptionKeyLen]byte
 	var authKey [AuthenticationKeyLen]byte
 	var anonymizer Anonymizer = Anonymizer{}
 
@@ -45,7 +44,7 @@ func NewAnonymizer(salt string, key []byte) (*Anonymizer, error) {
 	}
 
 	// generate authentication (HMAC) key from encryption key
-	GenerateKeyFromBytesAndCopy(encKey[:], AuthenticationKeyLen, authKey[:])
+	GenerateKeyFromBytesAndCopy(key[:], AuthenticationKeyLen, authKey[:])
 	// validation code is the first 5 bytes of HMAC(SHA256) of random nonce; each thread needs its own validator!
 	if validator, err := NewKeyValidator(crypto.SHA256, authKey[:],
 		5 /*length*/, salt, NonceNone, false /*withNonce*/, true /*pre-allocated HMAC*/); err != nil {
@@ -54,20 +53,20 @@ func NewAnonymizer(salt string, key []byte) (*Anonymizer, error) {
 		anonymizer.Validator = validator
 	}
 
-	if ipcipher, err := NewCipher(encKey[:]); err != nil {
+	if ipcipher, err := NewCipher(key[:]); err != nil {
 		return nil, err
 	} else {
 		anonymizer.Ipcipher = ipcipher.(*Ipcipher)
 	}
 
 	// initialize the IP Prefix-preserving anonymization
-	anonymizer.Pan = NewPanIPv4(encKey[:])
+	anonymizer.Pan = NewPanIPv4(key[:])
 
 	// initialize the URI CBC based encryption
-	anonymizer.Uri = NewAnonymURI(encKey[:])
+	anonymizer.Uri = NewAnonymURI(key[:])
 
 	// initialize the Call-ID CBC based encryption
-	anonymizer.CallId = NewAnonymCallId(encKey[:])
+	anonymizer.CallId = NewAnonymCallId(key[:])
 
 	return &anonymizer, nil
 }
