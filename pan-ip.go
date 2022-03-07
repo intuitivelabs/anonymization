@@ -55,11 +55,11 @@ var (
 	pan4 PanIPv4
 )
 
-func NewPanIPv4(masterKey []byte) (pan *PanIPv4) {
-	pan = GetPan4()
+func NewPanIPv4(masterKey []byte) *PanIPv4 {
+	pan := PanIPv4{}
 	pan.WithMasterKey(masterKey)
 	pan.WithBitsPrefixBoundary(EightBitsPrefix)
-	return
+	return &pan
 }
 
 func GetPan4() *PanIPv4 {
