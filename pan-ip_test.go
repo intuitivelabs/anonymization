@@ -3,6 +3,7 @@ package anonymization
 import (
 	"bytes"
 	"net"
+	"sync"
 	"testing"
 )
 
@@ -50,6 +51,34 @@ func TestPanIPv4(t *testing.T) {
 			[]byte{85, 2, 3, 10},
 		}
 		pan := GetPan4().WithMasterKey(encKey[:]).WithBitsPrefixBoundary(EightBitsPrefix)
+		enc = make([]byte, net.IPv4len)
+		dec = make([]byte, net.IPv4len)
+		for _, c := range cases {
+			pan.Encrypt(enc, c)
+			t.Logf("plain: %s encrypted: %s", c.String(), enc.String())
+			pan.Decrypt(dec, enc)
+			t.Logf("encrypted: %s decrypted: %s", enc.String(), dec.String())
+			if !bytes.Equal(dec, c) {
+				t.Errorf("expected: %s have: %s (enc: %s)", c.String(), dec.String(), enc.String())
+			}
+		}
+	})
+	t.Run("global keys", func(t *testing.T) {
+		var enc, dec net.IP
+		cases := []net.IP{
+			[]byte{24, 5, 0, 80},
+			[]byte{22, 11, 33, 44},
+			[]byte{255, 0, 255, 241},
+			[]byte{1, 2, 3, 4},
+			[]byte{1, 5, 6, 7},
+			[]byte{1, 2, 8, 9},
+			[]byte{1, 2, 3, 10},
+			[]byte{85, 2, 3, 10},
+		}
+		// main thread
+		km := NewKeyingMaterial(encKey[:])
+		// go routines
+		pan := GetPan4().WithKeyingMaterial(km).WithBitsPrefixBoundary(EightBitsPrefix)
 		enc = make([]byte, net.IPv4len)
 		dec = make([]byte, net.IPv4len)
 		for _, c := range cases {
@@ -166,5 +195,33 @@ func BenchmarkPanIP(b *testing.B) {
 				pan.Encrypt(enc, c)
 			}
 		}
+	})
+	b.Run("go routines", func(b *testing.B) {
+		var wg sync.WaitGroup
+		cases := []net.IP{
+			[]byte{24, 5, 0, 80},
+			//[]byte{24, 5, 56, 22},
+			//[]byte{22, 11, 33, 44},
+			//[]byte{255, 0, 255, 241},
+		}
+		profile := func(pb *testing.PB) {
+			wg.Add(1)
+			defer wg.Done()
+			km := KeyingMaterial{
+				Key: key,
+				IV:  iv,
+			}
+			pan := NewPanIPv4()
+			pan = pan.WithKeyingMaterial(&km).WithBitsPrefixBoundary(EightBitsPrefix)
+			enc := make([]byte, net.IPv4len)
+			for pb.Next() {
+				for _, c := range cases {
+					pan.Encrypt(enc, c)
+				}
+			}
+		}
+		b.ResetTimer()
+		b.RunParallel(profile)
+		wg.Wait()
 	})
 }

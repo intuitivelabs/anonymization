@@ -60,7 +60,7 @@ func NewAnonymizer(salt string, key []byte) (*Anonymizer, error) {
 	}
 
 	// initialize the IP Prefix-preserving anonymization
-	anonymizer.Pan = NewPanIPv4(key[:])
+	anonymizer.Pan = NewPanIPv4()
 
 	// initialize the URI CBC based encryption
 	anonymizer.Uri = NewAnonymURI(key[:])

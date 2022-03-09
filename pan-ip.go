@@ -37,12 +37,17 @@ const (
 	SixteenBitsPrefix
 )
 
+// keying material used for pan crypto algorithm: encryption key, IV
+type KeyingMaterial struct {
+	Key [BlockSize]byte
+	IV  [BlockSize]byte
+}
+
 // Prefix-preserving anonymizer for ip addresses
 // it implements cipher.Block interface
 type PanIPv4 struct {
+	km    KeyingMaterial
 	block cipher.Block
-	Key   [BlockSize]byte
-	IV    [BlockSize]byte
 	pad   [BlockSize]byte
 	// prefixFactor is the shortest preserved bit prefix.
 	// all preserved bits prefixes are a multiple of the prefixFactor
@@ -55,47 +60,54 @@ var (
 	pan4 PanIPv4
 )
 
-func NewPanIPv4(masterKey []byte) *PanIPv4 {
-	pan := PanIPv4{}
-	pan.WithMasterKey(masterKey)
-	pan.WithBitsPrefixBoundary(EightBitsPrefix)
-	return &pan
-}
-
 func GetPan4() *PanIPv4 {
 	return &pan4
 }
 
-func GeneratePanIPIV(masterKey []byte, ivLen int, iv []byte) error {
+func GenerateIV(masterKey []byte, ivLen int, iv []byte) error {
 	return GenerateKeyWithSaltAndCopy(SaltPanIPIV, masterKey, ivLen, iv)
 }
 
-func GeneratePanIPKey(masterKey []byte, keyLen int, key []byte) error {
+func GenerateKey(masterKey []byte, keyLen int, key []byte) error {
 	return GenerateKeyWithSaltAndCopy(SaltPanIPKey, masterKey, keyLen, key)
 }
 
-func InitPanIPv4KeysFromMasterKey(masterKey []byte, encKey []byte, iv []byte) {
+func NewPanIPv4() *PanIPv4 {
+	pan := PanIPv4{}
+	pan.WithBitsPrefixBoundary(EightBitsPrefix)
+	return &pan
+}
+
+func InitKeys(masterKey []byte, encKey []byte, iv []byte) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	// generate IV
-	if err := GeneratePanIPIV(masterKey[:], EncryptionKeyLen, iv[:]); err != nil {
+	if err := GenerateIV(masterKey[:], EncryptionKeyLen, iv[:]); err != nil {
 		panic(err)
 	}
 	_ = WithDebug && Dbg("IV: %v", iv[:])
 	// generate key
-	if err := GeneratePanIPKey(masterKey[:], EncryptionKeyLen, encKey[:]); err != nil {
+	if err := GenerateKey(masterKey[:], EncryptionKeyLen, encKey[:]); err != nil {
 		panic(err)
 	}
 	_ = WithDebug && Dbg("Key: %v", encKey[:])
 }
 
+func NewKeyingMaterial(masterKey []byte) *KeyingMaterial {
+	km := KeyingMaterial{}
+	df := DbgOn()
+	defer DbgRestore(df)
+	InitKeys(masterKey, km.Key[:], km.IV[:])
+	return &km
+}
+
 func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
 	var err error
-	InitPanIPv4KeysFromMasterKey(key[:], pan.Key[:], pan.IV[:])
-	if pan.block, err = aes.NewCipher(pan.Key[:]); err != nil {
+	InitKeys(key[:], pan.km.Key[:], pan.km.IV[:])
+	if pan.block, err = aes.NewCipher(pan.km.Key[:]); err != nil {
 		panic(err)
 	}
-	pan.block.Encrypt(pan.pad[:], pan.IV[:])
+	pan.block.Encrypt(pan.pad[:], pan.km.IV[:])
 	return pan
 }
 
@@ -114,12 +126,17 @@ func (pan *PanIPv4) WithBitsPrefixBoundary(b BitPrefixLen) *PanIPv4 {
 
 func (pan *PanIPv4) WithKeyAndIV(key [BlockSize]byte, iv [BlockSize]byte) *PanIPv4 {
 	var err error
-	subtle.ConstantTimeCopy(1, pan.Key[:], key[:])
-	subtle.ConstantTimeCopy(1, pan.IV[:], iv[:])
-	if pan.block, err = aes.NewCipher(pan.Key[:]); err != nil {
+	subtle.ConstantTimeCopy(1, pan.km.Key[:], key[:])
+	subtle.ConstantTimeCopy(1, pan.km.IV[:], iv[:])
+	if pan.block, err = aes.NewCipher(pan.km.Key[:]); err != nil {
 		panic(err)
 	}
-	pan.block.Encrypt(pan.pad[:], pan.IV[:])
+	pan.block.Encrypt(pan.pad[:], pan.km.IV[:])
+	return pan
+}
+
+func (pan *PanIPv4) WithKeyingMaterial(km *KeyingMaterial) *PanIPv4 {
+	pan.WithKeyAndIV(km.Key, km.IV)
 	return pan
 }
 
