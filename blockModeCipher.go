@@ -8,24 +8,23 @@ import (
 )
 
 type BlockModeCipher struct {
-	IV        []byte
-	Key       []byte
+	Km        KeyingMaterial
 	Block     cipher.Block
 	Encrypter cipher.BlockMode
 	Decrypter cipher.BlockMode
 }
 
 func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
-	bm.Key = key
-	bm.IV = iv
+	copy(bm.Km.Key[:], key)
+	copy(bm.Km.IV[:], iv)
 	bm.Block = block
-	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.IV)
-	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
+	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.Km.IV[:])
+	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.Km.IV[:])
 }
 
 func (bm *BlockModeCipher) Reset() {
-	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.IV)
-	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.IV)
+	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.Km.IV[:])
+	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.Km.IV[:])
 }
 
 // cbcEncryptToken encrypts the token from the src byte, specified using a sipsp.PField into dst
