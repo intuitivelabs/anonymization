@@ -105,7 +105,7 @@ func TestUriCBCEncrypt(t *testing.T) {
 		t.Fatalf("could not init IV: %s", err)
 	}
 	InitUriKeys(iv[:], ukey, hkey)
-	cipher := NewUriCBC(GetUriKeys())
+	cipher := NewUriCBCWithKeys(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:foo:pass@bar.com"),
@@ -230,7 +230,7 @@ func TestUriAnonymization(t *testing.T) {
 
 	// initialize the URI CBC based encryption
 	InitUriKeysFromMasterKey(encKey[:])
-	cipher := NewUriCBC(GetUriKeys())
+	cipher := NewUriCBCWithKeys(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:servicevolontaireinternational@bar.com"),
@@ -337,7 +337,7 @@ func TestUriAnonymization(t *testing.T) {
 		GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 		// generate IV for CBC
 		InitUriKeysFromMasterKey(encKey[:])
-		NewUriCBC(GetUriKeys())
+		NewUriCBCWithKeys(GetUriKeys())
 		anonUris := [...][]byte{
 			//[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
 			//[]byte("sip:A772DEUD3QBO8KNHHNA74OUVES------@JPPO6K1G21K9I2SIN5CV46RIT8------"),
@@ -429,7 +429,7 @@ func BenchmarkUriAnonymization(b *testing.B) {
 
 	// initialize the URI CBC based encryption
 	InitUriKeysFromMasterKey(encKey[:])
-	cipher := NewUriCBC(GetUriKeys())
+	cipher := NewUriCBCWithKeys(GetUriKeys())
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:004956768326@188.74.3.208:3894"),
