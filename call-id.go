@@ -20,6 +20,10 @@ type CallIdKeys struct {
 }
 
 var (
+	CallIdSalt = Salt{
+		Key: SaltCallIdKey,
+		IV:  SaltCallIdIV,
+	}
 	callIdCBC  = BlockModeCipher{}
 	callIdKeys = CallIdKeys{}
 )

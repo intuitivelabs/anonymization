@@ -33,6 +33,14 @@ type UriKeys struct {
 }
 
 var (
+	UriUsernameSalt = Salt{
+		Key: SaltUriUK,
+		IV:  SaltUriIV,
+	}
+	UriHostSalt = Salt{
+		Key: SaltUriHK,
+		IV:  SaltUriIV,
+	}
 	uriKeys = UriKeys{}
 	// URI CBC cipher
 	uriCBC = UriCBCMode{}
