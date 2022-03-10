@@ -17,6 +17,8 @@ const (
 )
 
 type UriCBCMode struct {
+	KmUser KeyingMaterial
+	KmHost KeyingMaterial
 	// user part cipher (key SHOULD be different from host part cipher)
 	User BlockModeCipher
 	// host part cipher (key SHOULD be different from user part cipher)
@@ -64,10 +66,10 @@ func GenerateURIHostKey(masterKey []byte, keyLen int, key []byte) error {
 
 func NewUriCBCWithMasterKey(masterKey []byte) *UriCBCMode {
 	InitUriKeysFromMasterKey(masterKey)
-	return NewUriCBC(GetUriKeys())
+	return NewUriCBCWithKeys(GetUriKeys())
 }
 
-func NewUriCBC(keys *UriKeys) *UriCBCMode {
+func NewUriCBCWithKeys(keys *UriKeys) *UriCBCMode {
 	if block, err := aes.NewCipher(keys.UserKey[:]); err != nil {
 		panic(err)
 	} else {
@@ -77,6 +79,20 @@ func NewUriCBC(keys *UriKeys) *UriCBCMode {
 		panic(err)
 	} else {
 		uriCBC.Host.Init(keys.IV[:], keys.HostKey[:], block)
+	}
+	return &uriCBC
+}
+
+func NewUriCBC(keys []KeyingMaterial) *UriCBCMode {
+	if block, err := aes.NewCipher(keys[0].Key[:]); err != nil {
+		panic(err)
+	} else {
+		uriCBC.User.Init(keys[0].IV[:], keys[0].Key[:], block)
+	}
+	if block, err := aes.NewCipher(keys[1].Key[:]); err != nil {
+		panic(err)
+	} else {
+		uriCBC.Host.Init(keys[1].IV[:], keys[1].Key[:], block)
 	}
 	return &uriCBC
 }
@@ -109,10 +125,14 @@ type AnonymURI struct {
 	cbc UriCBCMode
 }
 
-func NewAnonymURI(key []byte) *AnonymURI {
+func NewAnonymURI() *AnonymURI {
 	a := AnonymURI{}
-	a.cbc = *NewUriCBCWithMasterKey(key)
 	return &a
+}
+
+func (au *AnonymURI) WithKeyingMaterial(keys []KeyingMaterial) *AnonymURI {
+	au.cbc = *NewUriCBC(keys)
+	return au
 }
 
 func (au AnonymURI) Flat(src []byte) []byte {
