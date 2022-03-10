@@ -129,7 +129,7 @@ func NewAnonymizer(challenge string, key []byte) (*Anonymizer, error) {
 	anonymizer.Pan = NewPanIPv4()
 
 	// initialize the URI CBC based encryption
-	anonymizer.Uri = NewAnonymURI(key[:])
+	anonymizer.Uri = NewAnonymURI()
 
 	// initialize the Call-ID CBC based encryption
 	anonymizer.CallId = NewAnonymCallId(key[:])
@@ -150,6 +150,7 @@ func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) 
 		case PanKey:
 			a.Pan.WithKeyingMaterial(&key)
 		case UriUsernameKey:
+			a.Uri.WithKeyingMaterial(keys[i : i+2])
 		case UriHostKey:
 		case CallIdKey:
 		}
