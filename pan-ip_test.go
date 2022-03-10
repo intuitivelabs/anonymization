@@ -76,7 +76,7 @@ func TestPanIPv4(t *testing.T) {
 			[]byte{85, 2, 3, 10},
 		}
 		// main thread
-		km := NewKeyingMaterial(encKey[:])
+		km := NewKeyingMaterial(encKey[:], &PanSalt)
 		// go routines
 		pan := GetPan4().WithKeyingMaterial(km).WithBitsPrefixBoundary(EightBitsPrefix)
 		enc = make([]byte, net.IPv4len)

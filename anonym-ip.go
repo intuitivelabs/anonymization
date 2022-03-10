@@ -19,8 +19,12 @@ import (
 )
 
 var (
-	ErrBrokenIP = errors.New("broken IP address")
-	ErrKeySize  = errors.New("illegal key size")
+	ErrBrokenIP  = errors.New("broken IP address")
+	ErrKeySize   = errors.New("illegal key size")
+	IpcipherSalt = Salt{
+		Key: SaltIpcipher,
+		IV:  SaltIpcipher,
+	}
 )
 
 const BlockSize = 16

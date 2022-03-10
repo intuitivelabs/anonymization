@@ -37,12 +37,6 @@ const (
 	SixteenBitsPrefix
 )
 
-// keying material used for pan crypto algorithm: encryption key, IV
-type KeyingMaterial struct {
-	Key [BlockSize]byte
-	IV  [BlockSize]byte
-}
-
 // Prefix-preserving anonymizer for ip addresses
 // it implements cipher.Block interface
 type PanIPv4 struct {
@@ -57,6 +51,10 @@ type PanIPv4 struct {
 }
 
 var (
+	PanSalt = Salt{
+		Key: SaltPanIPKey,
+		IV:  SaltPanIPIV,
+	}
 	pan4 PanIPv4
 )
 
@@ -78,32 +76,11 @@ func NewPanIPv4() *PanIPv4 {
 	return &pan
 }
 
-func InitKeys(masterKey []byte, encKey []byte, iv []byte) {
-	df := DbgOn()
-	defer DbgRestore(df)
-	// generate IV
-	if err := GenerateIV(masterKey[:], EncryptionKeyLen, iv[:]); err != nil {
-		panic(err)
-	}
-	_ = WithDebug && Dbg("IV: %v", iv[:])
-	// generate key
-	if err := GenerateKey(masterKey[:], EncryptionKeyLen, encKey[:]); err != nil {
-		panic(err)
-	}
-	_ = WithDebug && Dbg("Key: %v", encKey[:])
-}
-
-func NewKeyingMaterial(masterKey []byte) *KeyingMaterial {
-	km := KeyingMaterial{}
-	df := DbgOn()
-	defer DbgRestore(df)
-	InitKeys(masterKey, km.Key[:], km.IV[:])
-	return &km
-}
-
+// WithMasterKey generates PanIPv4's keying material using the key parameter and the PanSalt
 func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
 	var err error
-	InitKeys(key[:], pan.km.Key[:], pan.km.IV[:])
+	//InitKeys(key[:], pan.km.Key[:], pan.km.IV[:])
+	pan.km = *NewKeyingMaterial(key[:], &PanSalt)
 	if pan.block, err = aes.NewCipher(pan.km.Key[:]); err != nil {
 		panic(err)
 	}
