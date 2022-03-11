@@ -142,7 +142,7 @@ func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, salt
 	return vtor, nil
 }
 
-// NewValidatorWithPassphrase returns a new key validator for a key generated from the passphrase.
+// NewKeyValidatorWithPassphrase returns a new key validator for a key generated from the passphrase.
 // Validation checksum is generated using HMAC(SHA256) with the key over the salt
 func NewKeyValidatorWithPassphrase(passphrase string, length int, salt string) (Validator, error) {
 	var key [AuthenticationKeyLen]byte
@@ -150,6 +150,7 @@ func NewKeyValidatorWithPassphrase(passphrase string, length int, salt string) (
 	return NewKeyValidatorWithKey(crypto.SHA256, key[:], length, salt, NonceNone, false, true)
 }
 
+// WithKey initializes the hashed message authentication code using the 'key' parameter
 func (vtor *KeyValidator) WithKey(key []byte) Validator {
 	vtor.mac = hmac.New(vtor.hash.New, key)
 	vtor.Compute()
@@ -196,6 +197,7 @@ func (vtor *KeyValidator) Compute() (code string) {
 	return vtor.code
 }
 
+// String returns the string representation of the KeyValidator
 func (vtor *KeyValidator) String() string {
 	if vtor.withNonce {
 		return fmt.Sprintf("%v:%s:%s:%s", vtor.key, vtor.hash, vtor.salt, vtor.noncer.String())
@@ -203,6 +205,11 @@ func (vtor *KeyValidator) String() string {
 	return fmt.Sprintf("%v:%s:%s", vtor.key, vtor.hash, vtor.salt)
 }
 
+// Validate the code parameter by:
+//  1. parsing it (expected format is HMAC:challenge)
+//  2. computing the local HMAC over the code's challenge
+//  3. compare the remote HMAC (code's HMAC) with the local one
+// The code parameter is valid when the two HMACs are equal. In this case the function returns true; otherwise it returns false.
 func (vtor *KeyValidator) Validate(code string) (isValid bool) {
 	var kvLocal, kvRemote KeyValidation
 	if err := (&kvRemote).parseCode(code); err != nil {
