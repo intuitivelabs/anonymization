@@ -76,7 +76,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 		t.Fatalf("could not init IV: %s", err)
 	}
 	InitCallIdKeys(iv[:], key)
-	cipher := NewCallIdCBC(GetCallIdKeys())
+	cipher := NewCallIdCBCWithKeys(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
 		[]byte(""),
@@ -143,7 +143,7 @@ func TestCallIdAnonymization(t *testing.T) {
 
 	// initialize the URI CBC based encryption
 	InitCallIdKeysFromMasterKey(encKey[:])
-	cipher := NewCallIdCBC(GetCallIdKeys())
+	cipher := NewCallIdCBCWithKeys(GetCallIdKeys())
 	// test case data
 	callIds := [...][]byte{
 		[]byte(""),
