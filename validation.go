@@ -157,7 +157,7 @@ func (vtor *KeyValidator) WithKey(key []byte) Validator {
 	return vtor
 }
 
-// computeWithNonce computes the validation code using an optional nonce specified as parameter
+// computeWithChallengeAndNonce computes the validation code using up to two parameters: a challenge and an optional nonce.
 func (vtor *KeyValidator) computeWithChallengeAndNonce(challenge []byte, nonce ...uint32) (kv KeyValidation) {
 	mac := vtor.mac
 	if mac == nil {
@@ -190,7 +190,7 @@ func (vtor *KeyValidator) compute() (kv KeyValidation) {
 	return vtor.computeWithChallengeAndNonce(vtor.challenge)
 }
 
-// Compute computes the key validation and returns its string representation
+// Compute computes the local key validation code and returns its string representation.
 func (vtor *KeyValidator) Compute() (code string) {
 	vtor.kv = vtor.compute()
 	vtor.code = vtor.kv.String()
@@ -205,7 +205,7 @@ func (vtor *KeyValidator) String() string {
 	return fmt.Sprintf("%v:%s:%s", vtor.key, vtor.hash, vtor.challenge)
 }
 
-// Validate the code parameter by:
+// Validate the remote key validation code by:
 //  1. parsing it (expected format is HMAC:challenge)
 //  2. computing the local HMAC over the code's challenge
 //  3. compare the remote HMAC (code's HMAC) with the local one
