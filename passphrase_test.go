@@ -23,15 +23,15 @@ func debugTest(w *bufio.Writer, format string, args ...interface{}) {
 }
 
 func TestKeyValidationCode(t *testing.T) {
-	df := DbgOff()
+	df := DbgOn()
 	defer DbgRestore(df)
 	passphrases := [...]string{
 		"foobar",
 		"123456abcd78910aaaaabbb",
 		"password",
 	}
-	var ch chan int = make(chan int, len(passphrases))
 	t.Run("multiple threads compute key validation code", func(t *testing.T) {
+		var ch chan int = make(chan int, len(passphrases))
 		for _, p := range passphrases {
 			go func() {
 				k := GenerateKeyFromPassphrase(p, AuthenticationKeyLen)
@@ -55,6 +55,7 @@ func TestKeyValidationCode(t *testing.T) {
 		}
 	})
 	t.Run("multiple threads compute and verify key validation code", func(t *testing.T) {
+		var ch chan int = make(chan int, len(passphrases))
 		for _, p := range passphrases {
 			go func() {
 				k := GenerateKeyFromPassphrase(p, AuthenticationKeyLen)
@@ -76,11 +77,13 @@ func TestKeyValidationCode(t *testing.T) {
 			}()
 		}
 		// wait for all threads to finish
-		for range passphrases {
+		for i, _ := range passphrases {
 			<-ch
+			_ = WithDebug && Dbg("thread %d finished", i)
 		}
 	})
 	t.Run("one thread with pre-allocated validator", func(t *testing.T) {
+		var ch chan int = make(chan int, len(passphrases))
 		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		go func() {
 			// pre-allocated validator with nonce
@@ -105,6 +108,7 @@ func TestKeyValidationCode(t *testing.T) {
 		<-ch
 	})
 	t.Run("one thread with on-the-fly validator", func(t *testing.T) {
+		var ch chan int = make(chan int, len(passphrases))
 		k := GenerateKeyFromPassphrase(passphrases[0], AuthenticationKeyLen)
 		go func() {
 			// on-the-fly key validator with nonce
@@ -190,7 +194,7 @@ func TestKeyValidationCode(t *testing.T) {
 			c := "5c9b4:a86483ec-8568-48da-b2cc-b4db9307d7f4"
 			_ = WithDebug && Dbg("key validation code: %s", c)
 			if !validator.Validate(c) {
-				t.Fatalf("key validator: expected %s got: %s", c, validator.(*KeyValidator).kv.String())
+				t.Fatalf("key validator failed")
 			}
 		}
 	})
