@@ -136,6 +136,7 @@ func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, salt
 	if err != nil {
 		return vtor, err
 	}
+	vtor.WithKey(key)
 	// compute the "initial" value of the key validation; it is reusable if the nonce is not used
 	vtor.Compute()
 	return vtor, nil
