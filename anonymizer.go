@@ -112,8 +112,7 @@ func NewAnonymizer(challenge string, key []byte) (*Anonymizer, error) {
 	// generate authentication (HMAC) key from encryption key
 	GenerateKeyFromBytesAndCopy(key[:], AuthenticationKeyLen, authKey[:])
 	// validation code is the first 5 bytes of HMAC(SHA256) of random nonce; each thread needs its own validator!
-	if validator, err := NewKeyValidator(crypto.SHA256, authKey[:],
-		5 /*length*/, challenge, NonceNone, false /*withNonce*/, true /*pre-allocated HMAC*/); err != nil {
+	if validator, err := NewKeyValidator(crypto.SHA256, 5 /*length*/, challenge, NonceNone, false /*withNonce*/); err != nil {
 		return nil, err
 	} else {
 		anonymizer.Validator = validator
@@ -137,15 +136,11 @@ func NewAnonymizer(challenge string, key []byte) (*Anonymizer, error) {
 	return &anonymizer, nil
 }
 
-func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) (*Anonymizer, error) {
-	var err error
+func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) *Anonymizer {
 	for i, key := range keys {
 		switch i {
 		case ValidationKey:
-			if a.Validator, err = NewKeyValidator(crypto.SHA256, key.Key[:],
-				5 /*length*/, challenge, NonceNone, false /*withNonce*/, true /*pre-allocated HMAC*/); err != nil {
-				return nil, err
-			}
+			a.Validator.WithKey(key.Key[:])
 		case IpcipherKey:
 		case PanKey:
 			a.Pan.WithKeyingMaterial(&key)
@@ -155,5 +150,5 @@ func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) 
 		case CallIdKey:
 		}
 	}
-	return a, nil
+	return a
 }

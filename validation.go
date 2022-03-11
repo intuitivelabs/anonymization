@@ -58,11 +58,15 @@ type Validator interface {
 	String() string
 	// returns the last validation code which was computed
 	Code() string
+	// recomputes the authentication HMAC using the specified key
+	WithKey(key []byte) Validator
 }
 
 type KeyValidator struct {
 	hash crypto.Hash
-	// can be either pre-allocated or allocated on-the-fly when the checksum is computed
+	// is mac preallocated and computed?
+	withMac bool
+	// can be either pre-allocated or allocated on-the-fly when the HMAC is computed
 	mac hash.Hash
 	// binary key to be validated
 	key []byte
@@ -79,38 +83,27 @@ type KeyValidator struct {
 	code string
 }
 
-// NewKeyValidator returns a key validator which be used either globally or in its own thread.
-// length indicates how much of the key checksum hexadecimal encoding is used for validation (0 < length <= 2*cryptoHash.Size())
-// flags: nonce | pre-allocated validator
-func NewKeyValidator(cryptoHash crypto.Hash, key []byte, length int, salt string, nonceType NonceType, flags ...bool) (Validator, error) {
+func NewKeyValidator(cryptoHash crypto.Hash, length int, salt string, nonceType NonceType, flags ...bool) (Validator, error) {
 	var (
-		withNonce bool      = false
-		noncer    Noncer    = nil
-		mac       hash.Hash = nil
-		err       error     = nil
+		withNonce bool   = false
+		withMac   bool   = false
+		noncer    Noncer = nil
+		err       error  = nil
 	)
 	registerHashFunctions()
 	switch len(flags) {
 	case 0:
 		// nonce not used, on-the-fly validator
 		withNonce = false
-		mac = nil
 	case 1:
 		// nonce flag specified, on-the-fly validator
 		withNonce = flags[0]
-		mac = nil
 	case 2:
 		// nonce flag specified, pre-allocated validator flag specified
 		fallthrough
 	default:
 		withNonce = flags[0]
-		if flags[1] {
-			// pre-allocated validator
-			mac = hmac.New(cryptoHash.New, key)
-		} else {
-			// on-the-fly validator
-			mac = nil
-		}
+		withMac = flags[1]
 	}
 	if length < ChecksumMinLength {
 		length = ChecksumMinLength
@@ -122,18 +115,43 @@ func NewKeyValidator(cryptoHash crypto.Hash, key []byte, length int, salt string
 			return nil, err
 		}
 	}
-	vtor := &KeyValidator{cryptoHash, mac, key, length, []byte(salt), withNonce, nonceType, noncer, KeyValidation{}, ""}
+	vtor := &KeyValidator{
+		hash:      cryptoHash,
+		length:    length,
+		salt:      []byte(salt),
+		withNonce: withNonce,
+		withMac:   withMac,
+		nonceType: nonceType,
+		noncer:    noncer,
+	}
+	return vtor, nil
+}
+
+// NewKeyValidatorWithKey returns a key validator which be used either globally or in its own thread.
+// length indicates how much of the key checksum hexadecimal encoding is used for validation (0 < length <= 2*cryptoHash.Size())
+// flags: nonce | pre-allocated validator
+func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, salt string, nonceType NonceType, flags ...bool) (Validator, error) {
+	vtor, err := NewKeyValidator(cryptoHash, length, salt, nonceType, flags...)
+	if err != nil {
+		return vtor, err
+	}
 	// compute the "initial" value of the key validation; it is reusable if the nonce is not used
 	vtor.Compute()
 	return vtor, nil
 }
 
-// NewPassphraseValidator returns a new key validator for a key generated from the passphrase.
+// NewValidatorWithPassphrase returns a new key validator for a key generated from the passphrase.
 // Validation checksum is generated using HMAC(SHA256) with the key over the salt
-func NewPassphraseValidator(passphrase string, length int, salt string) (Validator, error) {
+func NewKeyValidatorWithPassphrase(passphrase string, length int, salt string) (Validator, error) {
 	var key [AuthenticationKeyLen]byte
 	GenerateKeyFromPassphraseAndCopy(passphrase, AuthenticationKeyLen, key[:])
-	return NewKeyValidator(crypto.SHA256, key[:], length, salt, NonceNone, false, true)
+	return NewKeyValidatorWithKey(crypto.SHA256, key[:], length, salt, NonceNone, false, true)
+}
+
+func (vtor *KeyValidator) WithKey(key []byte) Validator {
+	vtor.mac = hmac.New(vtor.hash.New, key)
+	vtor.Compute()
+	return vtor
 }
 
 // computeWithNonce computes the validation code using an optional nonce specified as parameter
