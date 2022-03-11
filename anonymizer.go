@@ -36,8 +36,8 @@ const (
 
 // keying material used for pan crypto algorithm: encryption key, IV
 type KeyingMaterial struct {
-	Key [BlockSize]byte
-	IV  [BlockSize]byte
+	Key [EncryptionKeyLen]byte
+	IV  [EncryptionKeyLen]byte
 }
 
 var Keys [LastKey]KeyingMaterial
