@@ -40,7 +40,7 @@ type KeyValidation struct {
 	// a random number
 	nonce uint32
 	// a random, possible constant string
-	salt []byte
+	challenge []byte
 	// binary validation code - it is the output of hash function
 	code []byte
 	// hexadecimal encoded validation code; may not be fully encoded (it may have an odd number of bytes)
@@ -72,8 +72,8 @@ type KeyValidator struct {
 	key []byte
 	// how much of the key validation code is used for validation
 	length int
-	// salt
-	salt []byte
+	// challenge
+	challenge []byte
 	// is nonce used?
 	withNonce bool
 	nonceType NonceType
@@ -83,7 +83,7 @@ type KeyValidator struct {
 	code string
 }
 
-func NewKeyValidator(cryptoHash crypto.Hash, length int, salt string, nonceType NonceType, flags ...bool) (Validator, error) {
+func NewKeyValidator(cryptoHash crypto.Hash, length int, challenge string, nonceType NonceType, flags ...bool) (Validator, error) {
 	var (
 		withNonce bool   = false
 		withMac   bool   = false
@@ -118,21 +118,21 @@ func NewKeyValidator(cryptoHash crypto.Hash, length int, salt string, nonceType 
 	vtor := &KeyValidator{
 		hash:      cryptoHash,
 		length:    length,
-		salt:      []byte(salt),
+		challenge: []byte(challenge),
 		withNonce: withNonce,
 		withMac:   withMac,
 		nonceType: nonceType,
 		noncer:    noncer,
 	}
-	_ = WithDebug && Dbg("salt: %v", vtor.salt)
+	_ = WithDebug && Dbg("challenge: %v", vtor.challenge)
 	return vtor, nil
 }
 
 // NewKeyValidatorWithKey returns a key validator which be used either globally or in its own thread.
 // length indicates how much of the key checksum hexadecimal encoding is used for validation (0 < length <= 2*cryptoHash.Size())
 // flags: nonce | pre-allocated validator
-func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, salt string, nonceType NonceType, flags ...bool) (Validator, error) {
-	vtor, err := NewKeyValidator(cryptoHash, length, salt, nonceType, flags...)
+func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, challenge string, nonceType NonceType, flags ...bool) (Validator, error) {
+	vtor, err := NewKeyValidator(cryptoHash, length, challenge, nonceType, flags...)
 	if err != nil {
 		return vtor, err
 	}
@@ -143,11 +143,11 @@ func NewKeyValidatorWithKey(cryptoHash crypto.Hash, key []byte, length int, salt
 }
 
 // NewKeyValidatorWithPassphrase returns a new key validator for a key generated from the passphrase.
-// Validation checksum is generated using HMAC(SHA256) with the key over the salt
-func NewKeyValidatorWithPassphrase(passphrase string, length int, salt string) (Validator, error) {
+// Validation checksum is generated using HMAC(SHA256) with the key over the challenge
+func NewKeyValidatorWithPassphrase(passphrase string, length int, challenge string) (Validator, error) {
 	var key [AuthenticationKeyLen]byte
 	GenerateKeyFromPassphraseAndCopy(passphrase, AuthenticationKeyLen, key[:])
-	return NewKeyValidatorWithKey(crypto.SHA256, key[:], length, salt, NonceNone, false, true)
+	return NewKeyValidatorWithKey(crypto.SHA256, key[:], length, challenge, NonceNone, false, true)
 }
 
 // WithKey initializes the hashed message authentication code using the 'key' parameter
@@ -158,15 +158,15 @@ func (vtor *KeyValidator) WithKey(key []byte) Validator {
 }
 
 // computeWithNonce computes the validation code using an optional nonce specified as parameter
-func (vtor *KeyValidator) computeWithSaltAndNonce(salt []byte, nonce ...uint32) (kv KeyValidation) {
+func (vtor *KeyValidator) computeWithChallengeAndNonce(challenge []byte, nonce ...uint32) (kv KeyValidation) {
 	mac := vtor.mac
 	if mac == nil {
 		// allocate an "ephemeral" hmac object
 		mac = hmac.New(vtor.hash.New, vtor.key)
 	}
 	mac.Reset()
-	kv.salt = salt
-	mac.Write(kv.salt)
+	kv.challenge = challenge
+	mac.Write(kv.challenge)
 	if len(nonce) > 0 {
 		var b [4]byte
 		kv.nonce = nonce[0]
@@ -185,9 +185,9 @@ func (vtor *KeyValidator) computeWithSaltAndNonce(salt []byte, nonce ...uint32) 
 func (vtor *KeyValidator) compute() (kv KeyValidation) {
 	if vtor.withNonce && vtor.noncer != nil {
 		nonce, _ := vtor.noncer.NextNonce()
-		return vtor.computeWithSaltAndNonce(vtor.salt, nonce)
+		return vtor.computeWithChallengeAndNonce(vtor.challenge, nonce)
 	}
-	return vtor.computeWithSaltAndNonce(vtor.salt)
+	return vtor.computeWithChallengeAndNonce(vtor.challenge)
 }
 
 // Compute computes the key validation and returns its string representation
@@ -200,9 +200,9 @@ func (vtor *KeyValidator) Compute() (code string) {
 // String returns the string representation of the KeyValidator
 func (vtor *KeyValidator) String() string {
 	if vtor.withNonce {
-		return fmt.Sprintf("%v:%s:%s:%s", vtor.key, vtor.hash, vtor.salt, vtor.noncer.String())
+		return fmt.Sprintf("%v:%s:%s:%s", vtor.key, vtor.hash, vtor.challenge, vtor.noncer.String())
 	}
-	return fmt.Sprintf("%v:%s:%s", vtor.key, vtor.hash, vtor.salt)
+	return fmt.Sprintf("%v:%s:%s", vtor.key, vtor.hash, vtor.challenge)
 }
 
 // Validate the code parameter by:
@@ -217,9 +217,9 @@ func (vtor *KeyValidator) Validate(code string) (isValid bool) {
 	}
 	if kvRemote.withNonce {
 		_ = WithDebug && Dbg("compute with nonce:%d", kvRemote.nonce)
-		kvLocal = vtor.computeWithSaltAndNonce(kvRemote.salt, kvRemote.nonce)
+		kvLocal = vtor.computeWithChallengeAndNonce(kvRemote.challenge, kvRemote.nonce)
 	} else {
-		kvLocal = vtor.computeWithSaltAndNonce(kvRemote.salt)
+		kvLocal = vtor.computeWithChallengeAndNonce(kvRemote.challenge)
 	}
 	_ = WithDebug && Dbg("remote: \"%s\" local: \"%s\"", code, kvLocal.String())
 	isValid = (subtle.ConstantTimeCompare([]byte(code), []byte(kvLocal.String())) == 1)
@@ -231,9 +231,9 @@ func (vtor *KeyValidator) Code() string {
 }
 
 // Bytes returns the byte array representation of a key validation code
-// Format: hexadecimal_hmac:salt:[:base10_32bit_nonce]
+// Format: hexadecimal_hmac:challenge:[:base10_32bit_nonce]
 func (kv *KeyValidation) Bytes() []byte {
-	dstLen := hex.EncodedLen(len(kv.code)) + 1 + len(kv.salt) + 1 + MaxUintLen
+	dstLen := hex.EncodedLen(len(kv.code)) + 1 + len(kv.challenge) + 1 + MaxUintLen
 	_ = WithDebug && Dbg("dstLen: %d", dstLen)
 	dst := make([]byte, dstLen)
 	// hexadecimal encoding of the mac
@@ -246,8 +246,8 @@ func (kv *KeyValidation) Bytes() []byte {
 	}
 	dst = append(dst[0:length], ':')
 	length++
-	dst = append(dst[0:length], kv.salt...)
-	length += len(kv.salt)
+	dst = append(dst[0:length], kv.challenge...)
+	length += len(kv.challenge)
 	_ = WithDebug && Dbg("length: %d", length)
 	if kv.withNonce {
 		dst = append(dst[0:length], ':')
@@ -258,7 +258,7 @@ func (kv *KeyValidation) Bytes() []byte {
 }
 
 // String returns the string representation of a key validation code
-// Format: hexadecimal_hmac:salt:[:base10_32bit_nonce]
+// Format: hexadecimal_hmac:challenge:[:base10_32bit_nonce]
 func (kv KeyValidation) String() string {
 	return string((&kv).Bytes())
 }
@@ -267,8 +267,8 @@ func registerHashFunctions() {
 	crypto.RegisterHash(crypto.SHA256, sha256.New)
 }
 
-// parseCode parses the string representation of the key validation code and returns the contained checksum (hmac), salt, nonce.
-// 'code' format: hexadecimal_hmac:salt[:base10_32bit_nonce]
+// parseCode parses the string representation of the key validation code and returns the contained checksum (hmac), challenge, nonce.
+// 'code' format: hexadecimal_hmac:challenge[:base10_32bit_nonce]
 func (kv *KeyValidation) parseCode(code string) (err error) {
 	err = nil
 	s := strings.Split(code, Separator)
@@ -277,10 +277,10 @@ func (kv *KeyValidation) parseCode(code string) (err error) {
 	switch len(s) {
 	case 2:
 		kv.hexCode = []byte(s[0])
-		kv.salt = []byte(s[1])
+		kv.challenge = []byte(s[1])
 	case 3:
 		kv.hexCode = []byte(s[0])
-		kv.salt = []byte(s[1])
+		kv.challenge = []byte(s[1])
 		kv.withNonce = true
 		if tmp, err := strconv.Atoi(s[2]); err != nil {
 			err = ErrParseValidationCode
