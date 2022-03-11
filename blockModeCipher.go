@@ -1,6 +1,7 @@
 package anonymization
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
 
@@ -12,6 +13,15 @@ type BlockModeCipher struct {
 	Block     cipher.Block
 	Encrypter cipher.BlockMode
 	Decrypter cipher.BlockMode
+}
+
+func (bm *BlockModeCipher) WithKeyingMaterial(km *KeyingMaterial) *BlockModeCipher {
+	if block, err := aes.NewCipher(km.Key[:]); err != nil {
+		panic(err)
+	} else {
+		bm.Init(km.IV[:], km.Key[:], block)
+	}
+	return bm
 }
 
 func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
