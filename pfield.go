@@ -11,10 +11,9 @@ type AnonymPField struct {
 	CBC    BlockModeCipher
 }
 
-func NewAnonymCallId(key []byte) *AnonymPField {
-	a := AnonymPField{}
-	a.CBC = *NewCallIdCBCWithMasterKey(key)
-	return &a
+func (apf *AnonymPField) WithKeyingMaterial(km *KeyingMaterial) *AnonymPField {
+	apf.CBC.WithKeyingMaterial(km)
+	return apf
 }
 
 func (apf *AnonymPField) EncodedLen() int {

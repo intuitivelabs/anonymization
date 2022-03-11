@@ -70,6 +70,16 @@ func NewCallIdCBCWithKeys(keys *CallIdKeys) *BlockModeCipher {
 	return &callIdCBC
 }
 
+func NewCallIdCBC(km *KeyingMaterial) *BlockModeCipher {
+	(&callIdCBC).WithKeyingMaterial(km)
+	return &callIdCBC
+}
+
 func CallIdCBC() *BlockModeCipher {
 	return &callIdCBC
+}
+
+func NewAnonymCallId() *AnonymPField {
+	a := AnonymPField{}
+	return &a
 }
