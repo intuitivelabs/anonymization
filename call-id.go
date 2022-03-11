@@ -58,10 +58,10 @@ func InitCallIdKeysFromMasterKey(masterKey []byte) {
 
 func NewCallIdCBCWithMasterKey(masterKey []byte) *BlockModeCipher {
 	InitCallIdKeysFromMasterKey(masterKey)
-	return NewCallIdCBC(GetCallIdKeys())
+	return NewCallIdCBCWithKeys(GetCallIdKeys())
 }
 
-func NewCallIdCBC(keys *CallIdKeys) *BlockModeCipher {
+func NewCallIdCBCWithKeys(keys *CallIdKeys) *BlockModeCipher {
 	if block, err := aes.NewCipher(keys.Key[:]); err != nil {
 		panic(err)
 	} else {
