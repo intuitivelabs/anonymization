@@ -124,6 +124,7 @@ func NewKeyValidator(cryptoHash crypto.Hash, length int, salt string, nonceType 
 		nonceType: nonceType,
 		noncer:    noncer,
 	}
+	_ = WithDebug && Dbg("salt: %v", vtor.salt)
 	return vtor, nil
 }
 
