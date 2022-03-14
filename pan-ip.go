@@ -81,7 +81,7 @@ func (pan *PanIPv4) WithMasterKey(key []byte) *PanIPv4 {
 	var err error
 	//InitKeys(key[:], pan.km.Key[:], pan.km.IV[:])
 	pan.km = *NewKeyingMaterial(key[:], &PanSalt)
-	if pan.block, err = aes.NewCipher(pan.km.Key[:]); err != nil {
+	if pan.block, err = aes.NewCipher(pan.km.Enc[:]); err != nil {
 		panic(err)
 	}
 	pan.block.Encrypt(pan.pad[:], pan.km.IV[:])
@@ -103,9 +103,9 @@ func (pan *PanIPv4) WithBitsPrefixBoundary(b BitPrefixLen) *PanIPv4 {
 
 func (pan *PanIPv4) WithKeyAndIV(key [BlockSize]byte, iv [BlockSize]byte) *PanIPv4 {
 	var err error
-	subtle.ConstantTimeCopy(1, pan.km.Key[:], key[:])
+	subtle.ConstantTimeCopy(1, pan.km.Enc[:], key[:])
 	subtle.ConstantTimeCopy(1, pan.km.IV[:], iv[:])
-	if pan.block, err = aes.NewCipher(pan.km.Key[:]); err != nil {
+	if pan.block, err = aes.NewCipher(pan.km.Enc[:]); err != nil {
 		panic(err)
 	}
 	pan.block.Encrypt(pan.pad[:], pan.km.IV[:])
@@ -113,7 +113,7 @@ func (pan *PanIPv4) WithKeyAndIV(key [BlockSize]byte, iv [BlockSize]byte) *PanIP
 }
 
 func (pan *PanIPv4) WithKeyingMaterial(km *KeyingMaterial) *PanIPv4 {
-	pan.WithKeyAndIV(km.Key, km.IV)
+	pan.WithKeyAndIV(km.Enc, km.IV)
 	return pan
 }
 

@@ -16,16 +16,16 @@ type BlockModeCipher struct {
 }
 
 func (bm *BlockModeCipher) WithKeyingMaterial(km *KeyingMaterial) *BlockModeCipher {
-	if block, err := aes.NewCipher(km.Key[:]); err != nil {
+	if block, err := aes.NewCipher(km.Enc[:]); err != nil {
 		panic(err)
 	} else {
-		bm.Init(km.IV[:], km.Key[:], block)
+		bm.Init(km.IV[:], km.Enc[:], block)
 	}
 	return bm
 }
 
 func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
-	copy(bm.Km.Key[:], key)
+	copy(bm.Km.Enc[:], key)
 	copy(bm.Km.IV[:], iv)
 	bm.Block = block
 	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.Km.IV[:])

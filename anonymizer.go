@@ -36,8 +36,9 @@ const (
 
 // keying material used for pan crypto algorithm: encryption key, IV
 type KeyingMaterial struct {
-	Key [EncryptionKeyLen]byte
-	IV  [EncryptionKeyLen]byte
+	Auth [AuthenticationKeyLen]byte
+	Enc  [EncryptionKeyLen]byte
+	IV   [EncryptionKeyLen]byte
 }
 
 var Keys [LastKey]KeyingMaterial
@@ -50,7 +51,7 @@ func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
 	return &km
 }
 
-// generate the keying material (encryption key and initialization vector) based on masterKey and salt.
+// generate the keying material (authentication, encryption key and initialization vector) based on masterKey and salt.
 func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -59,11 +60,14 @@ func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial
 		panic(err)
 	}
 	_ = WithDebug && Dbg("IV: %v", km.IV[:])
-	// generate key
-	if err := GenerateKeyWithSaltAndCopy(salt.Key, masterKey[:], EncryptionKeyLen, km.Key[:]); err != nil {
+	// generate encryption key
+	if err := GenerateKeyWithSaltAndCopy(salt.Key, masterKey[:], EncryptionKeyLen, km.Enc[:]); err != nil {
 		panic(err)
 	}
-	_ = WithDebug && Dbg("Key: %v", km.Key[:])
+	_ = WithDebug && Dbg("encryption key: %v", km.Enc[:])
+	// generate authentication key
+	GenerateKeyFromBytesAndCopy(masterKey[:], AuthenticationKeyLen, km.Auth[:])
+	_ = WithDebug && Dbg("authentication key: %v", km.Auth[:])
 	return km
 }
 
@@ -140,7 +144,7 @@ func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) 
 	for i, key := range keys {
 		switch i {
 		case ValidationKey:
-			a.Validator.WithKey(key.Key[:])
+			a.Validator.WithKey(key.Auth[:])
 		case IpcipherKey:
 		case PanKey:
 			a.Pan.WithKeyingMaterial(&key)
