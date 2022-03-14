@@ -34,7 +34,7 @@ const (
 	LastKey, _ // marker, not used
 )
 
-// keying material used for pan crypto algorithm: encryption key, IV
+// keying material used for crypto algorithms: authentican key, encryption key, IV
 type KeyingMaterial struct {
 	Auth [AuthenticationKeyLen]byte
 	Enc  [EncryptionKeyLen]byte
@@ -89,10 +89,10 @@ func NewAnonymizerWithPassphrase(challenge, passphrase string) (*Anonymizer, err
 	var key [EncryptionKeyLen]byte
 	GenerateKeyFromPassphraseAndCopy(passphrase,
 		EncryptionKeyLen, key[:])
-	return NewAnonymizer(challenge, key[:])
+	return NewAnonymizerWithKey(challenge, key[:])
 }
 
-func NewAnonymizerWithKey(challenge, key string) (*Anonymizer, error) {
+func NewAnonymizerWithHexKey(challenge, key string) (*Anonymizer, error) {
 	var encKey [EncryptionKeyLen]byte
 
 	// copy the configured key into the one used during realtime processing
@@ -101,10 +101,10 @@ func NewAnonymizerWithKey(challenge, key string) (*Anonymizer, error) {
 	} else {
 		subtle.ConstantTimeCopy(1, encKey[:], decoded)
 	}
-	return NewAnonymizer(challenge, encKey[:])
+	return NewAnonymizerWithKey(challenge, encKey[:])
 }
 
-func NewAnonymizer(challenge string, key []byte) (*Anonymizer, error) {
+func NewAnonymizerWithKey(challenge string, key []byte) (*Anonymizer, error) {
 	var authKey [AuthenticationKeyLen]byte
 	var anonymizer Anonymizer = Anonymizer{}
 
@@ -140,12 +140,42 @@ func NewAnonymizer(challenge string, key []byte) (*Anonymizer, error) {
 	return &anonymizer, nil
 }
 
-func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) *Anonymizer {
+func NewAnonymizer(challenge string) (*Anonymizer, error) {
+	var anonymizer Anonymizer = Anonymizer{}
+
+	if len(challenge) == 0 {
+		return nil, errors.New("initEncryption: challenge for" +
+			" password validation is missing")
+	}
+
+	// validation code is the first 5 bytes of HMAC(SHA256) of random nonce; each thread needs its own validator!
+	if validator, err := NewKeyValidator(crypto.SHA256, 5 /*length*/, challenge, NonceNone, false /*withNonce*/); err != nil {
+		return nil, err
+	} else {
+		anonymizer.Validator = validator
+	}
+
+	// initialize the IP Prefix-preserving anonymization
+	anonymizer.Pan = NewPanIPv4()
+
+	// initialize the URI CBC based encryption
+	anonymizer.Uri = NewAnonymURI()
+
+	// initialize the Call-ID CBC based encryption
+	anonymizer.CallId = NewAnonymCallId()
+
+	return &anonymizer, nil
+}
+
+func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) (*Anonymizer, error) {
 	for i, key := range keys {
 		switch i {
 		case ValidationKey:
 			a.Validator.WithKey(key.Auth[:])
 		case IpcipherKey:
+			if _, err := a.Ipcipher.WithKey(key.Enc[:]); err != nil {
+				return nil, err
+			}
 		case PanKey:
 			a.Pan.WithKeyingMaterial(&key)
 		case UriUsernameKey:
@@ -155,5 +185,5 @@ func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) 
 		case CallIdKey:
 		}
 	}
-	return a
+	return a, nil
 }

@@ -56,6 +56,19 @@ func NewPassphraseCipher(passphrase string) (cipher.Block, error) {
 	return NewCipher(key[:])
 }
 
+func (c *Ipcipher) WithKey(key []byte) (*Ipcipher, error) {
+	switch k := len(key); k {
+	default:
+		return nil, ErrKeySize
+	case BlockSize:
+		break
+	}
+	for i, v := range key {
+		c.key[i] = v
+	}
+	return c, nil
+}
+
 func (c *Ipcipher) Encrypt(dst, src []byte) {
 	if err := EncryptIP(c.key, dst, src); err != nil {
 		panic("anonymization: encrypt error")
