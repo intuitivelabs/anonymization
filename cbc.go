@@ -3,6 +3,7 @@ package anonymization
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/subtle"
 	"fmt"
 
 	"github.com/intuitivelabs/sipsp"
@@ -27,8 +28,8 @@ func (bm *CBC) WithKeyingMaterial(km *KeyingMaterial) *CBC {
 }
 
 func (bm *CBC) Init(iv, key []byte, block cipher.Block) {
-	copy(bm.Km.Enc[:], key)
-	copy(bm.Km.IV[:], iv)
+	subtle.ConstantTimeCopy(1, bm.Km.Enc[:], key)
+	subtle.ConstantTimeCopy(1, bm.Km.IV[:], iv)
 	bm.Block = block
 	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.Km.IV[:])
 	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.Km.IV[:])
