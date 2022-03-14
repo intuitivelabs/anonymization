@@ -74,7 +74,7 @@ func (cbc *CBC) DecryptToken(dst, src []byte, pf sipsp.PField) (length int, err 
 	// 1. copy token
 	_ = copy(dst, token)
 	// 2. get the token from dst
-	dToken := pf.Get(dst)
+	dToken := dst[0:len(token)]
 	// 3. decrypt token
 	cbc.Decrypter.CryptBlocks(dToken, dToken)
 	unpadded, err := PKCSUnpad(dToken, blockSize)
