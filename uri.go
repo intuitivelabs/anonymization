@@ -19,9 +19,9 @@ const (
 // CBC cipher block used for URI anonymization
 type UriCBC struct {
 	// user part cipher (key SHOULD be different from host part cipher)
-	User BlockModeCipher
+	User CBC
 	// host part cipher (key SHOULD be different from user part cipher)
-	Host BlockModeCipher
+	Host CBC
 }
 
 func (cbc *UriCBC) WithKeyingMaterial(km []KeyingMaterial) *UriCBC {
