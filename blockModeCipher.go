@@ -9,14 +9,14 @@ import (
 )
 
 // block mode cipher used in CBC (cipher block chaining) mode
-type BlockModeCipher struct {
+type CBC struct {
 	Km        KeyingMaterial
 	Block     cipher.Block
 	Encrypter cipher.BlockMode
 	Decrypter cipher.BlockMode
 }
 
-func (bm *BlockModeCipher) WithKeyingMaterial(km *KeyingMaterial) *BlockModeCipher {
+func (bm *CBC) WithKeyingMaterial(km *KeyingMaterial) *CBC {
 	bm.Km = *km
 	if block, err := aes.NewCipher(km.Enc[:]); err != nil {
 		panic(err)
@@ -26,7 +26,7 @@ func (bm *BlockModeCipher) WithKeyingMaterial(km *KeyingMaterial) *BlockModeCiph
 	return bm
 }
 
-func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
+func (bm *CBC) Init(iv, key []byte, block cipher.Block) {
 	copy(bm.Km.Enc[:], key)
 	copy(bm.Km.IV[:], iv)
 	bm.Block = block
@@ -34,7 +34,7 @@ func (bm *BlockModeCipher) Init(iv, key []byte, block cipher.Block) {
 	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.Km.IV[:])
 }
 
-func (bm *BlockModeCipher) Reset() {
+func (bm *CBC) Reset() {
 	bm.Encrypter = cipher.NewCBCEncrypter(bm.Block, bm.Km.IV[:])
 	bm.Decrypter = cipher.NewCBCDecrypter(bm.Block, bm.Km.IV[:])
 }

@@ -24,7 +24,7 @@ var (
 		Key: SaltCallIdKey,
 		IV:  SaltCallIdIV,
 	}
-	callIdCBC  = BlockModeCipher{}
+	callIdCBC  = CBC{}
 	callIdKeys = CallIdKeys{}
 )
 
@@ -56,12 +56,12 @@ func InitCallIdKeysFromMasterKey(masterKey []byte) {
 	_ = WithDebug && Dbg("Call-ID Key: %v", GetCallIdKeys().Key)
 }
 
-func NewCallIdCBCWithMasterKey(masterKey []byte) *BlockModeCipher {
+func NewCallIdCBCWithMasterKey(masterKey []byte) *CBC {
 	InitCallIdKeysFromMasterKey(masterKey)
 	return NewCallIdCBCWithKeys(GetCallIdKeys())
 }
 
-func NewCallIdCBCWithKeys(keys *CallIdKeys) *BlockModeCipher {
+func NewCallIdCBCWithKeys(keys *CallIdKeys) *CBC {
 	if block, err := aes.NewCipher(keys.Key[:]); err != nil {
 		panic(err)
 	} else {
@@ -70,12 +70,12 @@ func NewCallIdCBCWithKeys(keys *CallIdKeys) *BlockModeCipher {
 	return &callIdCBC
 }
 
-func NewCallIdCBC(km *KeyingMaterial) *BlockModeCipher {
+func NewCallIdCBC(km *KeyingMaterial) *CBC {
 	(&callIdCBC).WithKeyingMaterial(km)
 	return &callIdCBC
 }
 
-func CallIdCBC() *BlockModeCipher {
+func CallIdCBC() *CBC {
 	return &callIdCBC
 }
 

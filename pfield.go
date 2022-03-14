@@ -8,7 +8,7 @@ import (
 // AnonymPField is a PField that can be anonymized using a cipher in Cipher Block Chaining mode
 type AnonymPField struct {
 	PField sipsp.PField
-	CBC    BlockModeCipher
+	CBC    CBC
 }
 
 func (apf *AnonymPField) WithKeyingMaterial(km *KeyingMaterial) *AnonymPField {
