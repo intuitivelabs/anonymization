@@ -183,6 +183,7 @@ func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) 
 			a.Uri.WithKeyingMaterial(keys[i : i+2])
 		case UriHostKey:
 		case CallIdKey:
+			a.CallId.WithKeyingMaterial(&key)
 		}
 	}
 	return a, nil
