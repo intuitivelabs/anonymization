@@ -84,15 +84,15 @@ func NewUriCBCWithKeys(keys *UriKeys) *UriCBCMode {
 }
 
 func NewUriCBC(keys []KeyingMaterial) *UriCBCMode {
-	if block, err := aes.NewCipher(keys[0].Key[:]); err != nil {
+	if block, err := aes.NewCipher(keys[0].Enc[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.User.Init(keys[0].IV[:], keys[0].Key[:], block)
+		uriCBC.User.Init(keys[0].IV[:], keys[0].Enc[:], block)
 	}
-	if block, err := aes.NewCipher(keys[1].Key[:]); err != nil {
+	if block, err := aes.NewCipher(keys[1].Enc[:]); err != nil {
 		panic(err)
 	} else {
-		uriCBC.Host.Init(keys[1].IV[:], keys[1].Key[:], block)
+		uriCBC.Host.Init(keys[1].IV[:], keys[1].Enc[:], block)
 	}
 	return &uriCBC
 }

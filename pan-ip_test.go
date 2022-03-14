@@ -208,7 +208,7 @@ func BenchmarkPanIP(b *testing.B) {
 			wg.Add(1)
 			defer wg.Done()
 			km := KeyingMaterial{
-				Key: key,
+				Enc: key,
 				IV:  iv,
 			}
 			pan := NewPanIPv4()
