@@ -8,6 +8,7 @@ import (
 	"github.com/intuitivelabs/sipsp"
 )
 
+// block mode cipher used in CBC (cipher block chaining) mode
 type BlockModeCipher struct {
 	Km        KeyingMaterial
 	Block     cipher.Block
@@ -16,6 +17,7 @@ type BlockModeCipher struct {
 }
 
 func (bm *BlockModeCipher) WithKeyingMaterial(km *KeyingMaterial) *BlockModeCipher {
+	bm.Km = *km
 	if block, err := aes.NewCipher(km.Enc[:]); err != nil {
 		panic(err)
 	} else {

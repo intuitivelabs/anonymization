@@ -17,12 +17,16 @@ const (
 )
 
 type UriCBCMode struct {
-	KmUser KeyingMaterial
-	KmHost KeyingMaterial
 	// user part cipher (key SHOULD be different from host part cipher)
 	User BlockModeCipher
 	// host part cipher (key SHOULD be different from user part cipher)
 	Host BlockModeCipher
+}
+
+func (cbc *UriCBCMode) WithKeyingMaterial(km []KeyingMaterial) *UriCBCMode {
+	cbc.User.WithKeyingMaterial(&km[0])
+	cbc.Host.WithKeyingMaterial(&km[1])
+	return cbc
 }
 
 type UriKeys struct {
@@ -131,7 +135,7 @@ func NewAnonymURI() *AnonymURI {
 }
 
 func (au *AnonymURI) WithKeyingMaterial(keys []KeyingMaterial) *AnonymURI {
-	au.cbc = *NewUriCBC(keys)
+	au.cbc.WithKeyingMaterial(keys)
 	return au
 }
 
