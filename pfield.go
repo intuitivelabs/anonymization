@@ -52,7 +52,7 @@ func (apf *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 		return
 	}
 	apf.CBC.Reset()
-	length, err := cbcEncryptToken(dst, src, apf.PField, apf.CBC.Encrypter)
+	length, err := apf.CBC.EncryptToken(dst, src, apf.PField)
 	if err != nil {
 		err = fmt.Errorf("Call-ID encryption error: %w", err)
 	}
@@ -66,7 +66,7 @@ func (apf *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 func (apf *AnonymPField) CBCDecrypt(dst, src []byte) (err error) {
 	err = nil
 	apf.CBC.Reset()
-	length, err := cbcDecryptToken(dst, src, apf.PField, apf.CBC.Decrypter)
+	length, err := apf.CBC.DecryptToken(dst, src, apf.PField)
 	if err != nil {
 		err = fmt.Errorf("cannot encrypt Call-ID: %w", err)
 	}
