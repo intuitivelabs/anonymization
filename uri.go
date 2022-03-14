@@ -330,7 +330,7 @@ func (au *AnonymURI) cbcEncryptUserInfo(dst, src []byte, offs int) (int, error) 
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.User.Offs), int(userEnd))
 		au.cbc.User.Reset()
-		l, err := cbcEncryptToken(dst, src, pf, au.cbc.User.Encrypter)
+		l, err := au.cbc.User.EncryptToken(dst, src, pf)
 		if err != nil {
 			return 0, fmt.Errorf("cannot encrypt user part: %w", err)
 		}
@@ -361,7 +361,7 @@ func (au *AnonymURI) cbcEncryptHostInfo(dst, src []byte, offs int, onlyHost bool
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.Host.Offs), int(end))
 		au.cbc.Host.Reset()
-		l, err = cbcEncryptToken(dst[offs:], src, pf, au.cbc.Host.Encrypter)
+		l, err = au.cbc.Host.EncryptToken(dst[offs:], src, pf)
 		if err != nil {
 			return 0, fmt.Errorf("cannot encrypt URI: %w", err)
 		}
