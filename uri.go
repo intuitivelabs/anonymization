@@ -16,14 +16,15 @@ const (
 	SaltUriHK = "23c1be46c4af62a6c6be8c860e2f13bc"
 )
 
-type UriCBCMode struct {
+// CBC cipher block used for URI anonymization
+type UriCBC struct {
 	// user part cipher (key SHOULD be different from host part cipher)
 	User BlockModeCipher
 	// host part cipher (key SHOULD be different from user part cipher)
 	Host BlockModeCipher
 }
 
-func (cbc *UriCBCMode) WithKeyingMaterial(km []KeyingMaterial) *UriCBCMode {
+func (cbc *UriCBC) WithKeyingMaterial(km []KeyingMaterial) *UriCBC {
 	cbc.User.WithKeyingMaterial(&km[0])
 	cbc.Host.WithKeyingMaterial(&km[1])
 	return cbc
@@ -49,7 +50,7 @@ var (
 	}
 	uriKeys = UriKeys{}
 	// URI CBC cipher
-	uriCBC = UriCBCMode{}
+	uriCBC = UriCBC{}
 	//uriGCM = UriGCM{}
 )
 
@@ -68,12 +69,12 @@ func GenerateURIHostKey(masterKey []byte, keyLen int, key []byte) error {
 	return GenerateKeyWithSaltAndCopy(SaltUriHK, masterKey, keyLen, key)
 }
 
-func NewUriCBCWithMasterKey(masterKey []byte) *UriCBCMode {
+func NewUriCBCWithMasterKey(masterKey []byte) *UriCBC {
 	InitUriKeysFromMasterKey(masterKey)
 	return NewUriCBCWithKeys(GetUriKeys())
 }
 
-func NewUriCBCWithKeys(keys *UriKeys) *UriCBCMode {
+func NewUriCBCWithKeys(keys *UriKeys) *UriCBC {
 	if block, err := aes.NewCipher(keys.UserKey[:]); err != nil {
 		panic(err)
 	} else {
@@ -87,7 +88,7 @@ func NewUriCBCWithKeys(keys *UriKeys) *UriCBCMode {
 	return &uriCBC
 }
 
-func NewUriCBC(keys []KeyingMaterial) *UriCBCMode {
+func NewUriCBC(keys []KeyingMaterial) *UriCBC {
 	if block, err := aes.NewCipher(keys[0].Enc[:]); err != nil {
 		panic(err)
 	} else {
@@ -98,10 +99,6 @@ func NewUriCBC(keys []KeyingMaterial) *UriCBCMode {
 	} else {
 		uriCBC.Host.Init(keys[1].IV[:], keys[1].Enc[:], block)
 	}
-	return &uriCBC
-}
-
-func UriCBC() *UriCBCMode {
 	return &uriCBC
 }
 
@@ -126,7 +123,7 @@ func GetUriKeys() *UriKeys {
 
 type AnonymURI struct {
 	uri sipsp.PsipURI
-	cbc UriCBCMode
+	cbc UriCBC
 }
 
 func NewAnonymURI() *AnonymURI {
