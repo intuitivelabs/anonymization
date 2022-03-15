@@ -446,21 +446,18 @@ func (au *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 func (au *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
-	blockSize := au.cbc.User.Decrypter.BlockSize()
 	// copy the SIP scheme
 	offs := int(au.copyScheme(dst, src))
 	if au.uri.User.Len > 0 {
-		var user []byte
 		dUser := au.uri.User.Get(dst)
 		_ = WithDebug && Dbg("encrypted user part: %v", au.uri.User.Get(src))
 		au.cbc.User.Reset()
-		au.cbc.User.DecryptToken(dUser, src, au.uri.User)
-		_ = WithDebug && Dbg("decrypted user part (padded): %v", dUser)
-		if user, err = PKCSUnpad(dUser, blockSize); err != nil {
+		l, err := au.cbc.User.DecryptToken(dUser, src, au.uri.User)
+		if err != nil {
 			return fmt.Errorf("cannot decrypt URI's user part: %w", err)
 		}
-		_ = WithDebug && Dbg("decrypted user part (un-padded): %v %s", user, string(user))
-		l := len(user)
+		_ = WithDebug && Dbg("decrypted user part (padded): %v", dUser)
+		_ = WithDebug && Dbg("decrypted user part (un-padded): %v %s", dUser[0:l], string(dUser[0:l]))
 		au.uri.User.Offs = sipsp.OffsT(offs)
 		au.uri.User.Len = sipsp.OffsT(l)
 		au.uri.Pass.Offs, au.uri.Pass.Len = 0, 0
@@ -477,14 +474,13 @@ func (au *AnonymURI) CBCDecrypt(dst, src []byte) (err error) {
 	host := au.uri.Host.Get(src)
 	_ = WithDebug && Dbg("host: %v (offs: %d len : %d)", host, int(au.uri.Host.Offs), int(au.uri.Host.Len))
 	au.cbc.Host.Reset()
-	au.cbc.Host.DecryptToken(dHost, src, au.uri.Host)
-	_ = WithDebug && Dbg("decrypted host part (padded): %v", dHost)
-	au.uri.Host.Offs = sipsp.OffsT(offs)
-	if host, err = PKCSUnpad(dHost, blockSize); err != nil {
+	l, err := au.cbc.Host.DecryptToken(dHost, src, au.uri.Host)
+	if err != nil {
 		return fmt.Errorf("cannot decrypt URI's host part: %w", err)
 	}
-	_ = WithDebug && Dbg("decrypted host part (un-padded): %v %s", host, string(host))
-	au.uri.Host.Len = sipsp.OffsT(len(host))
+	_ = WithDebug && Dbg("decrypted host part (padded): %v", dHost)
+	au.uri.Host.Offs = sipsp.OffsT(offs)
+	au.uri.Host.Len = sipsp.OffsT(l)
 	_ = au.copyPortParamsHeaders(dst, src)
 	return nil
 }
