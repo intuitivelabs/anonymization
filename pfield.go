@@ -5,6 +5,10 @@ import (
 	"github.com/intuitivelabs/sipsp"
 )
 
+const (
+	PfMaxBufSize int = 4096
+)
+
 // AnonymPField is a PField that can be anonymized using a cipher in Cipher Block Chaining mode
 type AnonymPField struct {
 	PField sipsp.PField
@@ -28,7 +32,7 @@ func (apf *AnonymPField) PKCSPaddedLen(size int) (length int, err error) {
 	length = 0
 	err = nil
 	if length, err = PKCSPadLen(int(apf.PField.Len), size); err != nil {
-		err = fmt.Errorf("Call-ID padding error: %w", err)
+		err = fmt.Errorf("cannot pad: %w", err)
 		return
 	}
 	length += int(apf.PField.Len)
@@ -43,18 +47,18 @@ func (apf *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 	// 1. check dst len
 	paddedLen, err := apf.PKCSPaddedLen(blockSize)
 	if err != nil {
-		err = fmt.Errorf("Call-ID encryption error: %w", err)
+		err = fmt.Errorf("cannot encrypt: %w", err)
 		return
 	}
 	if paddedLen > len(dst) {
-		err = fmt.Errorf("Call-ID encryption error: encryption buffer too small, got %d bytes need %d bytes",
+		err = fmt.Errorf("encryption buffer too small, got %d bytes need %d bytes",
 			len(dst), paddedLen+1)
 		return
 	}
 	apf.CBC.Reset()
 	length, err := apf.CBC.EncryptToken(dst, src, apf.PField)
 	if err != nil {
-		err = fmt.Errorf("Call-ID encryption error: %w", err)
+		err = fmt.Errorf("cannot encrypt: %w", err)
 	}
 	apf.PField = sipsp.PField{
 		Offs: 0,
@@ -68,7 +72,7 @@ func (apf *AnonymPField) CBCDecrypt(dst, src []byte) (err error) {
 	apf.CBC.Reset()
 	length, err := apf.CBC.DecryptToken(dst, src, apf.PField)
 	if err != nil {
-		err = fmt.Errorf("cannot encrypt Call-ID: %w", err)
+		err = fmt.Errorf("cannot decrypt: %w", err)
 	}
 	apf.PField.Len = sipsp.OffsT(length)
 	return
@@ -79,7 +83,7 @@ func (apf *AnonymPField) Encode(dst, src []byte) (err error) {
 	codec := NewEncoding()
 	// 1. check dst len
 	if len(dst) < apf.EncodedLen() {
-		err = fmt.Errorf("\"dst\" buffer too small for encoded Call-ID (%d bytes required and %d bytes available)",
+		err = fmt.Errorf("\"dst\" buffer too small for encoded pfield (%d bytes required and %d bytes available)",
 			apf.EncodedLen(), len(dst))
 		return
 	}
@@ -96,7 +100,7 @@ func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
 	codec := NewEncoding()
 	// 1. check dst len
 	if len(dst) < apf.DecodedLen() {
-		err = fmt.Errorf("\"dst\" buffer too small for decoded Call-ID (%d bytes required and %d bytes available)",
+		err = fmt.Errorf("\"dst\" buffer too small for decoded pfield (%d bytes required and %d bytes available)",
 			apf.DecodedLen(), len(dst))
 		return
 	}
@@ -111,25 +115,25 @@ func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
 func (apf *AnonymPField) Anonymize(dst, src []byte) ([]byte, error) {
 	df := DbgOn()
 	defer DbgRestore(df)
-	var ciphertxt [callIdMaxBufSize]byte
+	var ciphertxt [PfMaxBufSize]byte
 	apf.PField.Set(0, len(src))
 	if err := apf.CBCEncrypt(ciphertxt[:], src); err != nil {
-		return nil, fmt.Errorf("Call-ID anonymizing error: %w", err)
+		return nil, fmt.Errorf("cannot anonymize: %w", err)
 	}
 	if err := apf.Encode(dst, ciphertxt[:]); err != nil {
-		return nil, fmt.Errorf("Call-ID anonymizing error: %w", err)
+		return nil, fmt.Errorf("cannot anonymize: %w", err)
 	}
 	return apf.PField.Get(dst), nil
 }
 
 func (apf *AnonymPField) Deanonymize(dst, src []byte) ([]byte, error) {
-	var decoded [callIdMaxBufSize]byte
+	var decoded [PfMaxBufSize]byte
 	apf.PField.Set(0, len(src))
 	if err := apf.Decode(decoded[:], src); err != nil {
-		return nil, fmt.Errorf("cannot deanonymize Call-ID: %w", err)
+		return nil, fmt.Errorf("cannot deanonymize: %w", err)
 	}
 	if err := apf.CBCDecrypt(dst, decoded[:]); err != nil {
-		return nil, fmt.Errorf("cannot deanonymize Call-ID: %w", err)
+		return nil, fmt.Errorf("cannot deanonymize: %w", err)
 	}
 	return apf.PField.Get(dst), nil
 }
