@@ -33,6 +33,13 @@ const (
 	LastKey, _ // marker, not used
 )
 
+func NewAnonymizationBuf(l int) []byte {
+	if l < 32 {
+		l = 32
+	}
+	return make([]byte, 3*l)
+}
+
 // keying material used for crypto algorithms: authentican key, encryption key, IV
 type KeyingMaterial struct {
 	Master [EncryptionKeyLen]byte
