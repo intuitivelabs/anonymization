@@ -50,7 +50,7 @@ func TestCallIdBase32Codec(t *testing.T) {
 			if err := ac.Encode(encoded, callIds[i]); err != nil {
 				t.Fatalf("cannot encode Call-ID %s: %s", callIds[i], err.Error())
 			}
-			_ = WithDebug && Dbg("encoded Call-ID: %v (len: %d)", encoded, len(encoded))
+			_ = WithDebug && Dbg("encoded Call-ID: %v (len: %d)", ac.PField.Get(encoded), len(ac.PField.Get(encoded)))
 			_ = WithDebug && Dbg("encoded Call-ID: %s", string(ac.PField.Get(encoded)))
 			l = ac.DecodedLen()
 			decoded := make([]byte, l)
@@ -118,13 +118,13 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 			if err := ac.CBCEncrypt(ciphertxt, callIds[i]); err != nil {
 				t.Fatalf("cannot encrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			_ = WithDebug && Dbg("encrypted Call-ID: %v (len: %d)", ciphertxt, len(ciphertxt))
+			_ = WithDebug && Dbg("encrypted Call-ID: %v (len: %d)", ac.PField.Get(ciphertxt), len(ac.PField.Get(ciphertxt)))
 			plaintxt := make([]byte, len(ciphertxt))
 			if err := ac.CBCDecrypt(plaintxt, ciphertxt); err != nil {
 				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
 				t.Fatalf("cannot decrypt Call-ID %s: %s", callIds[i], err.Error())
 			}
-			_ = WithDebug && Dbg("decrypted Call-ID: %v %s", plaintxt, string(ac.PField.Get(plaintxt)))
+			_ = WithDebug && Dbg("decrypted Call-ID: %v %s", ac.PField.Get(plaintxt), string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}
@@ -184,9 +184,9 @@ func TestCallIdAnonymization(t *testing.T) {
 			plaintxt := make([]byte, 2*len(callIds[i])+CallIdCBC().Encrypter.BlockSize())
 			if _, err := ac.Deanonymize(plaintxt, ac.PField.Get(anonym)); err != nil {
 				_ = WithDebug && Dbg("decrypted Call-ID: %v", plaintxt)
-				t.Fatalf("cannot decrypt Call-ID %s: %s", anonym, err.Error())
+				t.Fatalf("cannot decrypt Call-ID %s: %s", ac.PField.Get(anonym), err.Error())
 			}
-			_ = WithDebug && Dbg(`deanonymized Call-ID: %v "%s"`, plaintxt, string(ac.PField.Get(plaintxt)))
+			_ = WithDebug && Dbg(`deanonymized Call-ID: %v "%s"`, ac.PField.Get(plaintxt), string(ac.PField.Get(plaintxt)))
 			if !bytes.Equal(callIds[i], ac.PField.Get(plaintxt)) {
 				t.Fatalf(`expected: "%s" got: "%s"`, callIds[i], string(ac.PField.Get(plaintxt)))
 			}
