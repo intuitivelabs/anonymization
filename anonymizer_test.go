@@ -3,29 +3,23 @@ package anonymization
 import (
 	"bytes"
 	"github.com/intuitivelabs/sipsp"
+	"sync"
 	"testing"
 )
 
 func TestAnonymizer(t *testing.T) {
-	// channel used to signal go routines state
-	var ch chan int = make(chan int)
+	// wait group for go routine synchronization
+	var wg sync.WaitGroup
 	// number of go routines
 	n := 10
 	pass := "foobar"
 	df := DbgOn()
 	defer DbgRestore(df)
 	waitForAll := func() {
-		for i := 0; i < n; i++ {
-			// there is only one state: ready (coded as 1)
-			<-ch
-			if WithDebug {
-				Dbg("thread %d has finished", i)
-			}
-		}
+		wg.Wait()
 	}
 	ready := func() {
-		// there is only one state: ready (coded as 1)
-		ch <- 1
+		wg.Done()
 	}
 	t.Run("empty challenge", func(t *testing.T) {
 		defer waitForAll()
@@ -50,6 +44,7 @@ func TestAnonymizer(t *testing.T) {
 		}
 		GenerateAllKeysWithPassphrase(pass)
 		for i := 0; i < n; i++ {
+			wg.Add(1)
 			go wt()
 		}
 	})
@@ -74,6 +69,7 @@ func TestAnonymizer(t *testing.T) {
 		}
 		GenerateAllKeysWithPassphrase(pass)
 		for i := 0; i < n; i++ {
+			wg.Add(1)
 			go wt()
 		}
 	})
@@ -134,6 +130,7 @@ func TestAnonymizer(t *testing.T) {
 		}
 		GenerateAllKeysWithPassphrase(pass)
 		for i := 0; i < n; i++ {
+			wg.Add(1)
 			go wt()
 		}
 	})
@@ -195,6 +192,7 @@ func TestAnonymizer(t *testing.T) {
 		}
 		GenerateAllKeysWithPassphrase(pass)
 		for i := 0; i < n; i++ {
+			wg.Add(1)
 			go wt()
 		}
 	})
