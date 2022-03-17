@@ -196,4 +196,47 @@ func TestAnonymizer(t *testing.T) {
 			go wt()
 		}
 	})
+	t.Run("pan-ip", func(t *testing.T) {
+		defer waitForAll()
+		cases := []string{
+			"24.5.0.80",
+			"22.11.33.44",
+			"255.0.255.241",
+			"1.2.3.4",
+			"1.5.6.7",
+			"1.2.8.9",
+			"1.2.3.10",
+			"85.2.3.10",
+		}
+		// worker thread function
+		wt := func() {
+			defer ready()
+			a, err := NewAnonymizer("a86483ec-8568-48da-b2cc-b4db9307d7f4")
+			if err != nil {
+				t.Fatalf("anonymizer initialization failure")
+			}
+			a.UpdateKeys(Keys[:])
+			for _, c := range cases {
+				enc, err := a.Pan.EncryptStr(c)
+				if err != nil {
+					t.Errorf("encryption error for ip address: %s", c)
+				}
+				t.Logf("plain: %s encrypted: %s", c, enc)
+				dec, err := a.Pan.DecryptStr(enc)
+				if err != nil {
+					t.Errorf("decryption error for plain ip address: %s", c)
+				}
+				t.Logf("encrypted: %s decrypted: %s", enc, dec)
+				if dec != c {
+					t.Errorf("expected: %s have: %s (enc: %s)", c, dec, enc)
+				}
+			}
+		}
+		pass = "reallyworks?"
+		GenerateAllKeysWithPassphrase(pass)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go wt()
+		}
+	})
 }
