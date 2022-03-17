@@ -3,6 +3,7 @@ package anonymization
 import (
 	"bytes"
 	"github.com/intuitivelabs/sipsp"
+	"net"
 	"sync"
 	"testing"
 )
@@ -233,6 +234,41 @@ func TestAnonymizer(t *testing.T) {
 			}
 		}
 		pass = "reallyworks?"
+		GenerateAllKeysWithPassphrase(pass)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go wt()
+		}
+	})
+	t.Run("IPv4", func(t *testing.T) {
+		defer waitForAll()
+		cases := []net.IP{
+			[]byte{1, 2, 3, 4},
+			[]byte{198, 41, 56, 22},
+			[]byte{22, 11, 33, 44},
+			[]byte{255, 0, 255, 241},
+		}
+		// worker thread function
+		wt := func() {
+			defer ready()
+			a, err := NewAnonymizer("a86483ec-8568-48da-b2cc-b4db9307d7f4")
+			if err != nil {
+				t.Fatalf("anonymizer initialization failure")
+			}
+			a.UpdateKeys(Keys[:])
+			enc := make([]byte, net.IPv4len)
+			dec := make([]byte, net.IPv4len)
+			for _, c := range cases {
+				a.Ipcipher.Encrypt(enc, c)
+				t.Logf("plain: %s encrypted: %s", c.String(), net.IP(enc).String())
+				a.Ipcipher.Decrypt(dec, enc)
+				t.Logf("encrypted: %s decrypted: %s", net.IP(enc).String(), net.IP(dec).String())
+				if !bytes.Equal(dec, c) {
+					t.Fatalf(`expected: "%s" got: "%s"`, c.String(), net.IP(dec).String())
+				}
+			}
+		}
+		pass := "justalonglongpasswordforanonymization"
 		GenerateAllKeysWithPassphrase(pass)
 		for i := 0; i < n; i++ {
 			wg.Add(1)
