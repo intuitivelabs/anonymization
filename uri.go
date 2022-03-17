@@ -212,7 +212,7 @@ func (au *AnonymURI) copyPortParamsHeaders(dst, src []byte) sipsp.OffsT {
 	}
 	offs++
 	_ = copy(dst[offs:], pph)
-	_ = WithDebug && Dbg("offs: %d dst[offs:]: %v", offs, dst[offs:])
+	_ = WithDebug && Dbg("offs: %d dst[offs:offs+len(pph)]: %v", offs, dst[offs:offs+len(pph)])
 	if au.uri.Port.Offs > 0 {
 		au.uri.Port.Offs = sipsp.OffsT(offs)
 		_ = WithDebug && Dbg("au.uri.Port.Offs: %d", offs)
@@ -434,7 +434,7 @@ func (au *AnonymURI) CBCEncrypt(dst, src []byte, opts ...bool) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot encrypt URI: %w", err)
 	}
-	_ = WithDebug && Dbg("dst: %v", dst)
+	_ = WithDebug && Dbg("dst: %v", au.Flat(dst))
 	return nil
 }
 
