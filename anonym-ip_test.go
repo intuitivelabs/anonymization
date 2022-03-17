@@ -300,6 +300,8 @@ func TestEncrypt(t *testing.T) {
 	if err != nil {
 		t.Errorf("ipcipher error: %s ", err)
 	}
+	df := DbgOn()
+	defer DbgRestore(df)
 	t.Run("IPv4", func(t *testing.T) {
 		cases := []net.IP{
 			[]byte{1, 2, 3, 4},
@@ -312,7 +314,9 @@ func TestEncrypt(t *testing.T) {
 		dec = make([]byte, net.IPv4len)
 		for _, c := range cases {
 			ipCipher.Encrypt(enc, c)
+			t.Logf("plain: %s encrypted: %s", c.String(), net.IP(enc).String())
 			ipCipher.Decrypt(dec, enc)
+			t.Logf("encrypted: %s decrypted: %s", net.IP(enc).String(), net.IP(dec).String())
 			if !bytes.Equal(dec, c) {
 				t.Errorf("expected %s have %s:", c.String(), dec.String())
 			}
