@@ -13,6 +13,7 @@ package anonymization
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/hex"
 	"errors"
 	"github.com/intuitivelabs/ipcrypt"
 	"net"
@@ -22,8 +23,8 @@ var (
 	ErrBrokenIP  = errors.New("broken IP address")
 	ErrKeySize   = errors.New("illegal key size")
 	IpcipherSalt = Salt{
-		Key: SaltIpcipher,
-		IV:  SaltIpcipher,
+		Key: hex.EncodeToString([]byte(SaltIpcipher)),
+		IV:  hex.EncodeToString([]byte(SaltIpcipher)),
 	}
 )
 
