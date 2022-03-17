@@ -22,8 +22,6 @@ var (
 
 	// control debugging by calling DbgOn() on a per function basis
 	dbgFlag = false
-
-	callers [1]uintptr
 )
 
 func init() {
@@ -53,10 +51,9 @@ func DbgOff() bool {
 }
 
 func Dbg(format string, args ...interface{}) bool {
+	var callers [1]uintptr
+	stderr := bufio.NewWriter(os.Stderr)
 	if dbgFlag {
-		if stderr == nil {
-			stderr = bufio.NewWriter(os.Stderr)
-		}
 		msg := fmt.Sprintf(format, args...)
 		defer func() {
 			fmt.Fprintln(stderr, msg)
