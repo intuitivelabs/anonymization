@@ -275,4 +275,38 @@ func TestAnonymizer(t *testing.T) {
 			go wt()
 		}
 	})
+	t.Run("IPv6", func(t *testing.T) {
+		defer waitForAll()
+		cases := []net.IP{
+			[]byte{1, 2, 3, 4, 255, 0, 255, 241, 251, 6, 245, 231, 51, 60, 145, 231},
+			[]byte{198, 41, 56, 22, 123, 10, 133, 144, 98, 4, 11, 12, 13, 18, 15, 164},
+			[]byte{22, 11, 33, 44, 255, 30, 255, 241, 20, 101, 6, 8, 250, 0, 75, 61},
+			[]byte{255, 0, 255, 241, 210, 20, 155, 241, 75, 40, 235, 221, 225, 50, 215, 141},
+		}
+		// worker thread function
+		wt := func() {
+			defer ready()
+			a, err := NewAnonymizer("a86483ec-8568-48da-b2cc-b4db9307d7f4")
+			if err != nil {
+				t.Fatalf("anonymizer initialization failure")
+			}
+			a.UpdateKeys(Keys[:])
+			var enc, dec net.IP
+			enc = make([]byte, net.IPv6len)
+			dec = make([]byte, net.IPv6len)
+			for _, c := range cases {
+				a.Ipcipher.Encrypt(enc, c)
+				a.Ipcipher.Decrypt(dec, enc)
+				if !bytes.Equal(dec, c) {
+					t.Errorf("expected %s have %s:", c.String(), dec.String())
+				}
+			}
+		}
+		pass := "justalonglongpasswordforanonymization"
+		GenerateAllKeysWithPassphrase(pass)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go wt()
+		}
+	})
 }
