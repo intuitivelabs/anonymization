@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"crypto/subtle"
 	"encoding/hex"
-	"errors"
 )
 
 type Salt struct {
@@ -36,9 +35,10 @@ const (
 
 // keying material used for crypto algorithms: authentican key, encryption key, IV
 type KeyingMaterial struct {
-	Auth [AuthenticationKeyLen]byte
-	Enc  [EncryptionKeyLen]byte
-	IV   [EncryptionKeyLen]byte
+	Master [EncryptionKeyLen]byte
+	Auth   [AuthenticationKeyLen]byte
+	Enc    [EncryptionKeyLen]byte
+	IV     [EncryptionKeyLen]byte
 }
 
 var Keys [LastKey]KeyingMaterial
@@ -55,6 +55,7 @@ func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
 func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial {
 	df := DbgOn()
 	defer DbgRestore(df)
+	subtle.ConstantTimeCopy(1, km.Master[:], masterKey[:])
 	// generate IV
 	if err := GenerateKeyWithSaltAndCopy(salt.IV, masterKey[:], EncryptionKeyLen, km.IV[:]); err != nil {
 		panic(err)
@@ -74,6 +75,15 @@ func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial
 func GenerateAllKeys(masterKey []byte) {
 	for i := FirstKey; i < LastKey; i++ {
 		Keys[i] = *NewKeyingMaterial(masterKey, &Salts[i])
+	}
+}
+
+func GenerateAllKeysWithPassphrase(passphrase string) {
+	var masterKey [EncryptionKeyLen]byte
+	// generate the master key from passphrase
+	GenerateKeyFromPassphraseAndCopy(passphrase, len(masterKey), masterKey[:])
+	for i := FirstKey; i < LastKey; i++ {
+		Keys[i] = *NewKeyingMaterial(masterKey[:], &Salts[i])
 	}
 }
 
@@ -108,11 +118,6 @@ func NewAnonymizerWithKey(challenge string, key []byte) (*Anonymizer, error) {
 	var authKey [AuthenticationKeyLen]byte
 	var anonymizer Anonymizer = Anonymizer{}
 
-	if len(challenge) == 0 {
-		return nil, errors.New("initEncryption: challenge for" +
-			" password validation is missing")
-	}
-
 	// generate authentication (HMAC) key from encryption key
 	GenerateKeyFromBytesAndCopy(key[:], AuthenticationKeyLen, authKey[:])
 	// validation code is the first 5 bytes of HMAC(SHA256) of random nonce; each thread needs its own validator!
@@ -143,11 +148,6 @@ func NewAnonymizerWithKey(challenge string, key []byte) (*Anonymizer, error) {
 func NewAnonymizer(challenge string) (*Anonymizer, error) {
 	var anonymizer Anonymizer = Anonymizer{}
 
-	if len(challenge) == 0 {
-		return nil, errors.New("initEncryption: challenge for" +
-			" password validation is missing")
-	}
-
 	// validation code is the first 5 bytes of HMAC(SHA256) of random nonce; each thread needs its own validator!
 	if validator, err := NewKeyValidator(crypto.SHA256, 5 /*length*/, challenge, NonceNone, false /*withNonce*/); err != nil {
 		return nil, err
@@ -155,6 +155,7 @@ func NewAnonymizer(challenge string) (*Anonymizer, error) {
 		anonymizer.Validator = validator
 	}
 
+	anonymizer.Ipcipher = &Ipcipher{}
 	// initialize the IP Prefix-preserving anonymization
 	anonymizer.Pan = NewPanIPv4()
 
@@ -167,13 +168,13 @@ func NewAnonymizer(challenge string) (*Anonymizer, error) {
 	return &anonymizer, nil
 }
 
-func (a *Anonymizer) UpdateKeys(challenge string, keys [LastKey]KeyingMaterial) (*Anonymizer, error) {
+func (a *Anonymizer) UpdateKeys(keys []KeyingMaterial) (*Anonymizer, error) {
 	for i, key := range keys {
 		switch i {
 		case ValidationKey:
 			a.Validator.WithKey(key.Auth[:])
 		case IpcipherKey:
-			if _, err := a.Ipcipher.WithKey(key.Enc[:]); err != nil {
+			if _, err := a.Ipcipher.WithKey(key.Master[:]); err != nil {
 				return nil, err
 			}
 		case PanKey:
