@@ -50,6 +50,10 @@ type KeyingMaterial struct {
 
 var Keys [LastKey]KeyingMaterial
 
+func GetKeys() []KeyingMaterial {
+	return Keys[:]
+}
+
 func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
 	km := KeyingMaterial{}
 	df := DbgOn()
