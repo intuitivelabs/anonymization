@@ -89,6 +89,17 @@ func GenerateAllKeys(masterKey []byte) {
 	}
 }
 
+func GenerateAllKeysWithHexMasterKey(masterKey string) error {
+	decoded, err := hex.DecodeString(masterKey)
+	if err != nil {
+		return err
+	}
+	for i := FirstKey; i < LastKey; i++ {
+		Keys[i] = *NewKeyingMaterial(decoded, &Salts[i])
+	}
+	return nil
+}
+
 func GenerateAllKeysWithPassphrase(passphrase string) {
 	var masterKey [EncryptionKeyLen]byte
 	// generate the master key from passphrase
@@ -114,15 +125,12 @@ func NewAnonymizerWithPassphrase(challenge, passphrase string) (*Anonymizer, err
 }
 
 func NewAnonymizerWithHexKey(challenge, key string) (*Anonymizer, error) {
-	var encKey [EncryptionKeyLen]byte
 
-	// copy the configured key into the one used during realtime processing
-	if decoded, err := hex.DecodeString(key); err != nil {
+	decoded, err := hex.DecodeString(key)
+	if err != nil {
 		return nil, err
-	} else {
-		subtle.ConstantTimeCopy(1, encKey[:], decoded)
 	}
-	return NewAnonymizerWithKey(challenge, encKey[:])
+	return NewAnonymizerWithKey(challenge, decoded)
 }
 
 func NewAnonymizerWithKey(challenge string, key []byte) (*Anonymizer, error) {
