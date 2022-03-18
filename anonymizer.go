@@ -2,35 +2,7 @@ package anonymization
 
 import (
 	"crypto"
-	"crypto/subtle"
 	"encoding/hex"
-)
-
-type Salt struct {
-	// salt used for generating the key
-	Key string
-	// salt used for generating the initialization vector
-	IV string
-}
-
-var Salts = [...]Salt{
-	IpcipherSalt,
-	IpcipherSalt,
-	PanSalt,
-	UriUsernameSalt,
-	UriHostSalt,
-	CallIdSalt,
-}
-
-// indices for Keys
-const (
-	FirstKey, ValidationKey = iota, iota
-	_, IpcipherKey
-	_, PanKey
-	_, UriUsernameKey
-	_, UriHostKey
-	_, CallIdKey
-	LastKey, _ // marker, not used
 )
 
 func NewAnonymizationBuf(l int) []byte {
@@ -38,75 +10,6 @@ func NewAnonymizationBuf(l int) []byte {
 		l = 32
 	}
 	return make([]byte, 3*l)
-}
-
-// keying material used for crypto algorithms: authentican key, encryption key, IV
-type KeyingMaterial struct {
-	Master [EncryptionKeyLen]byte
-	Auth   [AuthenticationKeyLen]byte
-	Enc    [EncryptionKeyLen]byte
-	IV     [EncryptionKeyLen]byte
-}
-
-var Keys [LastKey]KeyingMaterial
-
-func GetKeys() []KeyingMaterial {
-	return Keys[:]
-}
-
-func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
-	km := KeyingMaterial{}
-	df := DbgOn()
-	defer DbgRestore(df)
-	km.generate(masterKey, salt)
-	return &km
-}
-
-// generate the keying material (authentication, encryption key and initialization vector) based on masterKey and salt.
-func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial {
-	df := DbgOn()
-	defer DbgRestore(df)
-	subtle.ConstantTimeCopy(1, km.Master[:], masterKey[:])
-	// generate IV
-	if err := GenerateKeyWithSaltAndCopy(salt.IV, masterKey[:], EncryptionKeyLen, km.IV[:]); err != nil {
-		panic(err)
-	}
-	_ = WithDebug && Dbg("IV: %v", km.IV[:])
-	// generate encryption key
-	if err := GenerateKeyWithSaltAndCopy(salt.Key, masterKey[:], EncryptionKeyLen, km.Enc[:]); err != nil {
-		panic(err)
-	}
-	_ = WithDebug && Dbg("encryption key: %v", km.Enc[:])
-	// generate authentication key
-	GenerateKeyFromBytesAndCopy(masterKey[:], AuthenticationKeyLen, km.Auth[:])
-	_ = WithDebug && Dbg("authentication key: %v", km.Auth[:])
-	return km
-}
-
-func GenerateAllKeys(masterKey []byte) {
-	for i := FirstKey; i < LastKey; i++ {
-		Keys[i] = *NewKeyingMaterial(masterKey, &Salts[i])
-	}
-}
-
-func GenerateAllKeysWithHexMasterKey(masterKey string) error {
-	decoded, err := hex.DecodeString(masterKey)
-	if err != nil {
-		return err
-	}
-	for i := FirstKey; i < LastKey; i++ {
-		Keys[i] = *NewKeyingMaterial(decoded, &Salts[i])
-	}
-	return nil
-}
-
-func GenerateAllKeysWithPassphrase(passphrase string) {
-	var masterKey [EncryptionKeyLen]byte
-	// generate the master key from passphrase
-	GenerateKeyFromPassphraseAndCopy(passphrase, len(masterKey), masterKey[:])
-	for i := FirstKey; i < LastKey; i++ {
-		Keys[i] = *NewKeyingMaterial(masterKey[:], &Salts[i])
-	}
 }
 
 type Anonymizer struct {
