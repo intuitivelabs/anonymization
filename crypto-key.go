@@ -4,9 +4,6 @@
 // that can be found in the LICENSE.txt file in the root of the source
 // tree.
 
-// see ipcipher specification here:
-// https://powerdns.org/ipcipher/ipcipher.md.html
-
 package anonymization
 
 import (
@@ -15,6 +12,22 @@ import (
 	"encoding/hex"
 	"golang.org/x/crypto/pbkdf2"
 )
+
+// This module should be used for generating cryptographic keying material:
+//  - encryption keys
+//  - authentication keys (used for password validation)
+//  - initialization vectors
+//
+// Keying material derivation algorithm.
+// 1. Input: a passphrase.
+//   1.1. generate the master key from passphrase using `PBKDF2` key derivation function with HMAC-SHA1 and `IpcipherSalt` salt;
+// 2. Input: a binary master key
+//   2.1. (optional) if the key is encoded using hex format decoded it first to get the key in binary format
+//   2.2. generate the authentication key from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and 'IpcipherrSalt';
+//   2.3. generate the PAN encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `PanSalt` salt;
+//   2.4. generate the URI Username encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `UriUsernameSalt` salt;
+//   2.5. generate the URI Host encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `UriHostSalt` salt;
+//   2.6. generate the Call-ID encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `CallIdSalt` salt;
 
 const (
 	// salt used for generating IP encryption keys
@@ -67,10 +80,12 @@ type KeyingMaterial struct {
 
 var Keys [LastKey]KeyingMaterial
 
+// GetKeys returns the global array storing all the keying material (encryption, authentication keys and IVs)
 func GetKeys() []KeyingMaterial {
 	return Keys[:]
 }
 
+// NewKeyingMaterial generates new keys using `masterKey`, `salt` and PBKDF2 with HMAC-SHA1
 func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
 	km := KeyingMaterial{}
 	df := DbgOn()
@@ -79,7 +94,8 @@ func NewKeyingMaterial(masterKey []byte, salt *Salt) *KeyingMaterial {
 	return &km
 }
 
-// generate the keying material (authentication, encryption key and initialization vector) based on masterKey and salt.
+// generate generates the keying material (authentication, encryption key and initialization vector) based on masterKey and salt.
+// masterKey is also copied in the returned KeyingMaterial.
 func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -100,12 +116,16 @@ func (km *KeyingMaterial) generate(masterKey []byte, salt *Salt) *KeyingMaterial
 	return km
 }
 
+// GenerateAllKeys derives all the keying material using the `masterKey`. Generated keys, IVs are stored in the global arrays `Keys`.
+// Use this API when the `masterKey` has a raw binary format.
 func GenerateAllKeys(masterKey []byte) {
 	for i := FirstKey; i < LastKey; i++ {
 		Keys[i] = *NewKeyingMaterial(masterKey, &Salts[i])
 	}
 }
 
+// GenerateAllKeysWithHexMasterKey derives all the keying material using the `masterKey`. Generated keys, IVs are stored in the global arrays `Keys`.
+// Use this API when the `masterKey` has a hex string format. If the `masterKey` cannot be decoded from the hex encoding, the function returns an error.
 func GenerateAllKeysWithHexMasterKey(masterKey string) error {
 	decoded, err := hex.DecodeString(masterKey)
 	if err != nil {
@@ -117,6 +137,8 @@ func GenerateAllKeysWithHexMasterKey(masterKey string) error {
 	return nil
 }
 
+// GenerateAllKeysWithPassphrase derives all the keying material from a passphrase (i.e. a password).
+// Generated keys, IVs are stored in the global arrays `Keys`.
 func GenerateAllKeysWithPassphrase(passphrase string) {
 	var masterKey [EncryptionKeyLen]byte
 	// generate the master key from passphrase
