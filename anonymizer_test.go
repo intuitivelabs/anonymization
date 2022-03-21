@@ -310,3 +310,78 @@ func TestAnonymizer(t *testing.T) {
 		}
 	})
 }
+
+// benchmark some of the key generation and Anonymizer functionality
+func BenchmarkAnonymizer(b *testing.B) {
+	// key generation benchmarking
+	b.Run("keys", func(b *testing.B) {
+		pass := "foobar"
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			GenerateAllKeysWithPassphrase(pass)
+		}
+	})
+	// uri anonymization benchmarking (using Anonymizer object)
+	b.Run("uri", func(b *testing.B) {
+		pass := "foobar"
+		uris := [...][]byte{
+			[]byte("sip:servicevolontaireinternational@bar.com"),
+			[]byte("sip:foo:pass@bar.com"),
+			[]byte("sip:foo:pass@bar.com:5060"),
+			[]byte("sip:foo:pass@bar.com:5060;ttl=1"),
+			[]byte("sip:foo:pass@bar.com:5060;ttl=1?h=foo"),
+			[]byte("sip:foo:pass@bar.com;ttl=1"),
+			[]byte("sip:foo:pass@bar.com;ttl=1?h=foo"),
+			[]byte("sip:foo:pass@bar.com?h=foo"),
+			[]byte("sip:foo@bar.com"),
+			[]byte("sips:foo:pass@bar.com"),
+			[]byte("sip:1234"),
+			[]byte("sip:1234:5060"),
+			[]byte("sip:1234:5060;ttl=1"),
+			[]byte("sip:1234:5060;ttl=1?h=foo"),
+			[]byte("sip:1234;ttl=1"),
+			[]byte("sip:1234?h=foo"),
+			[]byte("sip:foo"),
+			[]byte("sip:004956768326@188.74.3.208:3894"),
+			[]byte("sip:004956768326@188.74.3.208:3894"),
+			[]byte("sip:0049567683269215869@188.74.3.208:3894"),
+			[]byte("sip:0049567683269215000@188.74.3.208:3894"),
+			[]byte("sip:004924554390004@85.212.141.52"),
+		}
+		// worker thread function
+		wt := func() {
+			var (
+				anonBuf   [uriMaxBufSize]byte
+				deanonBuf [uriMaxBufSize]byte
+			)
+			a, err := NewAnonymizer("a86483ec-8568-48da-b2cc-b4db9307d7f4")
+			if err != nil {
+				b.Fatalf("anonymizer initialization failure")
+			}
+			a.UpdateKeys(Keys[:])
+			for _, u := range uris {
+				a.Uri.Parse(u)
+				aUri, err := a.Uri.Anonymize(anonBuf[:], u)
+				if err != nil {
+					b.Fatalf("could not anonymize SIP URI %s: %s", u, err)
+				}
+				_ = WithDebug && Dbg("anonymized uri: %v %s", aUri, string(aUri))
+				dUri, err := a.Uri.Deanonymize(deanonBuf[:], aUri)
+				if err != nil {
+					b.Fatalf(`could not deanonymize SIP URI "%s": %s`, aUri, err)
+				}
+				_ = WithDebug && Dbg("deanonymized uri: %v %s", dUri, string(dUri))
+				if !bytes.Equal(u, dUri) {
+					b.Fatalf(`expected: "%s" got: "%s"`, u, dUri)
+				}
+			}
+		}
+		GenerateAllKeysWithPassphrase(pass)
+		b.ResetTimer()
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				wt()
+			}
+		})
+	})
+}
