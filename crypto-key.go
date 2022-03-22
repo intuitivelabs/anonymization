@@ -21,8 +21,8 @@ import (
 // Keying material derivation algorithm.
 // 1. Input: a passphrase.
 //   1.1. generate the master key from passphrase using `PBKDF2` key derivation function with HMAC-SHA1 and `IpcipherSalt` salt;
-// 2. Input: a binary master key
-//   2.1. (optional) if the key is encoded using hex format decoded it first to get the key in binary format
+// 2. Input: a master key
+//   2.1. (optional) if the master key is encoded using hex format decoded it first to get the key in binary format;
 //   2.2. generate the authentication key from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and 'IpcipherSalt';
 //   2.3. generate the PAN encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `PanSalt` salt;
 //   2.4. generate the URI Username encryption key and IV from the master key using `PBKDF2` key derivation function with HMAC-SHA1 and `UriUsernameSalt` salt;
@@ -78,6 +78,8 @@ type KeyingMaterial struct {
 	IV     [EncryptionKeyLen]byte
 }
 
+// Keys stores global keying material used for encryption and authentication algorithms.
+// Use GenerateAllKeys to derive all necessary keys.
 var Keys [LastKey]KeyingMaterial
 
 // GetKeys returns the global array storing all the keying material (encryption, authentication keys and IVs)
@@ -101,7 +103,7 @@ func (km *KeyingMaterial) SetMasterKey(key []byte) {
 	subtle.ConstantTimeCopy(1, km.Master[:], key[:])
 }
 
-// generate generates the keying material (authentication, encryption key and initialization vector) based
+// Generate generates the keying material (authentication, encryption key and initialization vector) based
 // on salt and the internally stored master key.
 func (km *KeyingMaterial) Generate(salt *Salt) *KeyingMaterial {
 	df := DbgOn()
