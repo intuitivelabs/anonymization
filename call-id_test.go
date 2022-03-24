@@ -106,9 +106,9 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 		for i, c := range pCallIds {
 			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
-				PField: c.CallID,
-				CBC:    *cipher,
+				CBC: *cipher,
 			}
+			ac.SetPField(&c.CallID)
 			l, err := ac.PKCSPaddedLen(cipher.Encrypter.BlockSize())
 			if err != nil {
 				t.Fatalf("cannot compute Call-ID pad len %s: %s", callIds[i], err.Error())
@@ -173,9 +173,9 @@ func TestCallIdAnonymization(t *testing.T) {
 		for i, c := range pCallIds {
 			_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
 			ac := AnonymPField{
-				PField: c.CallID,
-				CBC:    *cipher,
+				CBC: *cipher,
 			}
+			ac.SetPField(&c.CallID)
 			anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
 			if _, err := ac.Anonymize(anonym, callIds[i]); err != nil {
 				t.Fatalf("cannot anonymize Call-ID %s: %s", callIds[i], err.Error())
