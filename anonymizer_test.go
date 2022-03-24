@@ -171,7 +171,7 @@ func TestAnonymizer(t *testing.T) {
 			a.UpdateKeys(Keys[:])
 			for i, c := range pCallIds {
 				_ = WithDebug && Dbg("test case Call-ID: %s", string(callIds[i]))
-				a.CallId.PField = c.CallID
+				a.CallId.SetPField(&c.CallID)
 				//anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
 				aBuf := NewAnonymizationBuf(len(callIds[i]))
 				aCallId, err := a.CallId.Anonymize(aBuf, callIds[i])
