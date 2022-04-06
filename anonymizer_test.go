@@ -218,12 +218,12 @@ func TestAnonymizer(t *testing.T) {
 			}
 			a.UpdateKeys(Keys[:])
 			for _, c := range cases {
-				enc, err := a.Pan.EncryptStr(c)
+				enc, err := a.PanIPv4.EncryptStr(c)
 				if err != nil {
 					t.Errorf("encryption error for ip address: %s", c)
 				}
 				t.Logf("plain: %s encrypted: %s", c, enc)
-				dec, err := a.Pan.DecryptStr(enc)
+				dec, err := a.PanIPv4.DecryptStr(enc)
 				if err != nil {
 					t.Errorf("decryption error for plain ip address: %s", c)
 				}
