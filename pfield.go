@@ -32,10 +32,10 @@ func (apf *AnonymPField) DecodedLen() int {
 	return NewEncoding().DecodedLen(int(apf.PField.Len))
 }
 
-func (apf *AnonymPField) PKCSPaddedLen(size int) (length int, err error) {
+func (apf *AnonymPField) PaddedLen(size int) (length int, err error) {
 	length = 0
 	err = nil
-	if length, err = PKCSPadLen(int(apf.PField.Len), size); err != nil {
+	if length, err = PadLen(int(apf.PField.Len), size); err != nil {
 		err = fmt.Errorf("cannot pad: %w", err)
 		return
 	}
@@ -49,7 +49,7 @@ func (apf *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 	err = nil
 	blockSize := apf.CBC.Encrypter.BlockSize()
 	// 1. check dst len
-	paddedLen, err := apf.PKCSPaddedLen(blockSize)
+	paddedLen, err := apf.PaddedLen(blockSize)
 	if err != nil {
 		err = fmt.Errorf("cannot encrypt: %w", err)
 		return

@@ -20,6 +20,10 @@ import (
 
 type BitPrefixLen int
 
+const (
+	PanPadSize = 4
+)
+
 // errors
 var (
 	ErrSmallOutput     = errors.New("anonymization/pan: output smaller than input")
@@ -98,7 +102,7 @@ func (pan *Pan) WithKeyingMaterial(km *KeyingMaterial) *Pan {
 
 func (pan Pan) BlockSize() int { return BlockSize }
 
-func (pan Pan) Encrypt(dst, src []byte) error {
+func (pan Pan) Encrypt(dst, src []byte) (int, error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	var (
@@ -108,8 +112,12 @@ func (pan Pan) Encrypt(dst, src []byte) error {
 		result uint32 = 0
 	)
 
-	if len(dst) < len(src) {
-		return ErrSmallOutput
+	length := len(src)
+	if len(src)%4 > 0 {
+		length += 4 - len(src)%4
+	}
+	if len(dst) < length {
+		return 0, ErrSmallOutput
 	}
 	// "IV" is stored in pad
 	copy(plain[:], pan.pad[:])
@@ -118,27 +126,26 @@ func (pan Pan) Encrypt(dst, src []byte) error {
 	// the algorithm encrypts 4 bytes (32 bit) integers at a time; compute the number of required iterations
 	iterations := len(src) / 4
 	if len(src)%4 > 0 {
-		if len(dst) < (len(src) + 4 - len(src)%4) {
-			return ErrSmallOutput
-		}
 		iterations++
 	}
 	for i := 0; i < iterations; i++ {
 		var orig uint32
+		_ = WithDebug && Dbg("iteration: %v", i)
 		// orig starts in network byte order, do all operations in host byte order
-		if (i + 4) > len(src) {
+		if (4*i + 4) > len(src) {
 			// in case the length of src is not an multiple of 4, pad the missing bytes with '0'
 			var tmp [4]byte
-			copy(tmp[:], src[i:])
+			copy(tmp[:], src[4*i:])
 			orig = binary.BigEndian.Uint32(tmp[:])
 		} else {
-			orig = binary.BigEndian.Uint32(src[i : i+4])
+			orig = binary.BigEndian.Uint32(src[4*i : 4*i+4])
 		}
 
 		// "IV" is stored in pad
 		pad := binary.LittleEndian.Uint32(pan.pad[0:4])
 		_ = WithDebug && Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
 
+		result = 0
 		// For each prefixes with length from 0 to 31, generate a bit
 		// using the given cipher, which is used as a pseudorandom
 		// function here. The bits generated in every rounds are combined
@@ -171,15 +178,16 @@ func (pan Pan) Encrypt(dst, src []byte) error {
 			// Combination: the bits are combined into a pseudorandom one-time-pad
 			//result |= ( (ntohl(*(u_int32_t*)cipher)) & 0x80000000) >> pos;
 			result |= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
-			_ = WithDebug && Dbg("result: %v", result)
+			_ = WithDebug && Dbg("result: %x", result)
 		}
 
 		// XOR the orginal address with the pseudorandom one-time-pad
 		// convert result to network byte order before returning
 		//return htonl( result ^ orig );
-		binary.BigEndian.PutUint32(dst[i:i+4], result^orig)
+		binary.BigEndian.PutUint32(dst[4*i:4*i+4], result^orig)
 	}
-	return nil
+	_ = WithDebug && Dbg("dst: %v", dst[0:length])
+	return length, nil
 }
 
 func (pan Pan) Decrypt(dst, src []byte) error {
@@ -202,7 +210,7 @@ func (pan Pan) Decrypt(dst, src []byte) error {
 	// the algorithm decrypts 4 bytes (32 bit) integers at a time; compute the number of required iterations
 	iterations := len(src) / 4
 	for i := 0; i < iterations; i++ {
-		orig := binary.BigEndian.Uint32(src[i : i+4])
+		orig := binary.BigEndian.Uint32(src[4*i : 4*i+4])
 		// "IV" is stored in pad
 		pad := binary.LittleEndian.Uint32(pan.pad[0:4])
 		_ = WithDebug && Dbg("pad: %v, pad: %v", pan.pad[0:4], pad)
@@ -234,7 +242,7 @@ func (pan Pan) Decrypt(dst, src []byte) error {
 			orig ^= (binary.BigEndian.Uint32(cipher[0:4]) & pan.prfMask) >> shift
 			_ = WithDebug && Dbg("newpad: %v, plain: %v, cipher: %v, orig: %v", newpad, plain, cipher, orig)
 		}
-		binary.BigEndian.PutUint32(dst[i:i+4], orig)
+		binary.BigEndian.PutUint32(dst[4*i:4*i+4], orig)
 	}
 	return nil
 }
