@@ -450,27 +450,43 @@ func BenchmarkUriAnonymization(b *testing.B) {
 	defer DbgRestore(df)
 	var encKey [EncryptionKeyLen]byte
 	pass := "foobar"
-	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
-
 	// initialize the URI CBC based encryption
+	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 	InitUriKeysFromMasterKey(encKey[:])
 	cipher := NewUriCBCWithKeys(GetUriKeys())
+	auCBC := AnonymURI{
+		cbc: *cipher,
+	}
+	// initialize the URI Pan based encryption
+	GenerateAllKeysWithPassphrase(pass)
+	auPan := AnonymURI{}
+	auPan.WithKeyingMaterial(Keys[:])
+	auPan.WithPan()
 	// test case data
 	uris := [...][]byte{
 		[]byte("sip:004956768326@188.74.3.208:3894"),
 		[]byte("sip:004956768326@188.74.3.208:3894"),
 		[]byte("sip:004956769215869@188.74.3.208:3894"),
 	}
-	b.Run("anonymize", func(b *testing.B) {
+	b.Run("CBC", func(b *testing.B) {
 		b.ResetTimer()
-		au := AnonymURI{
-			cbc: *cipher,
-		}
 		for i := 0; i < b.N; i++ {
 			for i, u := range uris {
-				au.Parse(u)
+				auCBC.Parse(u)
 				anon := make([]byte, 3000)
-				if _, err := au.Anonymize(anon, uris[i], true); err != nil {
+				if _, err := auCBC.Anonymize(anon, uris[i], true); err != nil {
+					b.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
+				}
+			}
+		}
+	})
+	b.Run("pan", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for i, u := range uris {
+				auPan.Parse(u)
+				anon := make([]byte, 3000)
+				if _, err := auPan.Anonymize(anon, uris[i], true); err != nil {
 					b.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 				}
 			}
