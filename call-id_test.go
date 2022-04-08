@@ -109,7 +109,7 @@ func TestCallIdCBCEncrypt(t *testing.T) {
 				CBC: *cipher,
 			}
 			ac.SetPField(&c.CallID)
-			l, err := ac.PKCSPaddedLen(cipher.Encrypter.BlockSize())
+			l, err := ac.PaddedLen(cipher.Encrypter.BlockSize())
 			if err != nil {
 				t.Fatalf("cannot compute Call-ID pad len %s: %s", callIds[i], err.Error())
 			}
