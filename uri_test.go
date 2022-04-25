@@ -34,10 +34,6 @@ func DecodeBuf() []byte {
 	return decodeBuf[:]
 }
 
-func AnonymizeBuf() []byte {
-	return anonBuf[:]
-}
-
 func DeanonymizeBuf() []byte {
 	return deanonBuf[:]
 }
@@ -255,6 +251,7 @@ func TestUriAnonymization(t *testing.T) {
 		[]byte("sip:0049567683269215869@188.74.3.208:3894"),
 		[]byte("sip:0049567683269215000@188.74.3.208:3894"),
 		[]byte("sip:004924554390004@85.212.141.52"),
+		[]byte("sip:+4935145589999895@voip.easybell.de"),
 	}
 	// tests
 	t.Run("CBC state", func(t *testing.T) {
@@ -264,7 +261,7 @@ func TestUriAnonymization(t *testing.T) {
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
-			anon := AnonymizeBuf()
+			anon := AnonymizeBuf(len(u))
 			res, err := au.Anonymize(anon, uris[i], true)
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
@@ -291,7 +288,7 @@ func TestUriAnonymization(t *testing.T) {
 		}
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
-			anonBuf := AnonymizeBuf()
+			anonBuf := AnonymizeBuf(len(u))
 			res, err := au.Anonymize(anonBuf, u)
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
@@ -315,7 +312,7 @@ func TestUriAnonymization(t *testing.T) {
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
-			anonBuf := AnonymizeBuf()
+			anonBuf := AnonymizeBuf(len(u))
 			res, err := au.Anonymize(anonBuf, uris[i], true)
 			if err != nil {
 				t.Fatalf("could not anonBufymize SIP URI %s: %s", uris[i], err)
