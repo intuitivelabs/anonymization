@@ -5,7 +5,8 @@ const (
 	allocationFactor = 4
 )
 
-// AnonymizeBuf allocates a buffer which can be used for anonymizing sip header fields
+// AnonymizeBuf allocates a buffer which can be used for anonymizing arbitrary plain text.
+// 'l' is representing the length of the plain text to be anonymized.
 func AnonymizeBuf(l int) []byte {
 	if l < lowerBound {
 		l = lowerBound
