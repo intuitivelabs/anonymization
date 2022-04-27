@@ -2,6 +2,7 @@ package anonymization
 
 import (
 	"encoding/base32"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/intuitivelabs/sipsp"
@@ -12,13 +13,55 @@ const (
 	pad rune = '-'
 )
 
-func NewEncoding() *base32.Encoding {
-	return base32.HexEncoding.WithPadding(pad)
+type Codec int
+
+const (
+	Hex Codec = iota
+	Base32
+)
+
+type Encoding interface {
+	Encode(dst, src []byte)
+	Decode(dst, src []byte) (n int, err error)
+	EncodedLen(n int) int
+	DecodedLen(n int) int
+}
+
+type HexEncoding struct {
+}
+
+func (h *HexEncoding) Encode(dst, src []byte) {
+	hex.Encode(dst, src)
+	return
+}
+
+func (h *HexEncoding) Decode(dst, src []byte) (n int, err error) {
+	return hex.Decode(dst, src)
+}
+
+func (h *HexEncoding) EncodedLen(n int) int {
+	return hex.EncodedLen(n)
+}
+
+func (h *HexEncoding) DecodedLen(n int) int {
+	return hex.DecodedLen(n)
+}
+
+var hexEncoding *HexEncoding = &HexEncoding{}
+
+func NewEncoding(c Codec) Encoding {
+	switch c {
+	case Base32:
+		return base32.HexEncoding.WithPadding(pad)
+	case Hex:
+		return hexEncoding
+	}
+	return nil
 }
 
 // encodeToken encodes the token specified by sipsp.PField from src buffer into dst buffer using the codec.
 // It returns the length of the encoded token.
-func encodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (length int) {
+func encodeToken(dst, src []byte, pf sipsp.PField, codec Encoding) (length int) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	token := pf.Get(src)
@@ -35,7 +78,7 @@ func encodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (leng
 
 // decodeToken decodes the token specified by sipsp.PField from src buffer into dst buffer using the codec.
 // It returns the length of the encoded token.
-func decodeToken(dst, src []byte, pf sipsp.PField, codec *base32.Encoding) (length int, err error) {
+func decodeToken(dst, src []byte, pf sipsp.PField, codec Encoding) (length int, err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
 	length = 0

@@ -129,10 +129,14 @@ func GetUriKeys() *UriKeys {
 
 type AnonymURI struct {
 	uri sipsp.PsipURI
+	// codec for the binary anonymized URI
+	codec Codec
+	// chain block cipher anomyizer; either cbc or pan is used
 	cbc UriCBC
 	// is prefix preserving anonymization used for user part?
 	panF bool
-	pan  Pan
+	// prefix preserving anonymizer; either pan or cbc is used
+	pan Pan
 }
 
 func NewAnonymURI() *AnonymURI {
@@ -149,6 +153,16 @@ func (au *AnonymURI) WithKeyingMaterial(keys []KeyingMaterial) *AnonymURI {
 func (au *AnonymURI) WithPan() *AnonymURI {
 	au.panF = true
 	au.pan.WithBitsPrefixBoundary(EightBitsPrefix)
+	return au
+}
+
+func (au *AnonymURI) WithHexCodec() *AnonymURI {
+	au.codec = Hex
+	return au
+}
+
+func (au *AnonymURI) WithBase32Codec() *AnonymURI {
+	au.codec = Base32
 	return au
 }
 
@@ -586,7 +600,7 @@ func (au *AnonymURI) Decrypt(dst, src []byte) (err error) {
 
 func (au AnonymURI) EncodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
-	codec := NewEncoding()
+	codec := NewEncoding(au.codec)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
 		l += codec.EncodedLen(len(buf[au.uri.User.Offs:userEnd]))
@@ -602,7 +616,7 @@ func (au AnonymURI) EncodedLen(buf []byte) (l int) {
 
 func (au AnonymURI) DecodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
-	codec := NewEncoding()
+	codec := NewEncoding(au.codec)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
 		l += codec.DecodedLen(len(buf[au.uri.User.Offs:userEnd]))
@@ -642,7 +656,7 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if len(opts) > 0 {
 		onlyHost = opts[0]
 	}
-	codec := NewEncoding()
+	codec := NewEncoding(au.codec)
 	// 1. check dst len
 	if len(dst) < au.EncodedLen(src) {
 		return fmt.Errorf("\"dst\" buffer too small for encoded URI (%d bytes required and %d bytes available)",
@@ -701,7 +715,7 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 	var (
 		offs int = 0
 	)
-	codec := NewEncoding()
+	codec := NewEncoding(au.codec)
 	if len(dst) < au.DecodedLen(src) {
 		return fmt.Errorf("\"dst\" buffer too small for decoded URI (%d bytes required and %d bytes available)",
 			len(dst), codec.DecodedLen(len(src)))
