@@ -27,6 +27,7 @@ type Encoding interface {
 	DecodedLen(n int) int
 }
 
+// HexEncoding is a type which implements the Encoding interface by encoding/decoding to/from hexadecimal
 type HexEncoding struct {
 }
 
