@@ -409,7 +409,8 @@ func TestUriAnonymization(t *testing.T) {
 		}
 		for i, u := range anonUris {
 			au := AnonymURI{
-				cbc: *cipher,
+				cbc:   *cipher,
+				codec: Base32,
 			}
 			_ = WithDebug && Dbg("test case uri: %s", string(anonUris[i]))
 			au.Parse(u)

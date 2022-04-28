@@ -129,8 +129,12 @@ func GetUriKeys() *UriKeys {
 
 type AnonymURI struct {
 	uri sipsp.PsipURI
-	// codec for the binary anonymized URI
+	// codec used for encoding the user part of the binary anonymized URI
 	codec Codec
+	// encoding for the user part (either hex or base32)
+	userEncoding Encoding
+	// encoding for the host part (base32)
+	hostEncoding Encoding
 	// chain block cipher anomyizer; either cbc or pan is used
 	cbc UriCBC
 	// is prefix preserving anonymization used for user part?
@@ -141,6 +145,8 @@ type AnonymURI struct {
 
 func NewAnonymURI() *AnonymURI {
 	a := AnonymURI{}
+	a.userEncoding = NewEncoding(a.codec)
+	a.hostEncoding = NewEncoding(Base32)
 	return &a
 }
 
@@ -158,11 +164,13 @@ func (au *AnonymURI) WithPan() *AnonymURI {
 
 func (au *AnonymURI) WithHexCodec() *AnonymURI {
 	au.codec = Hex
+	au.userEncoding = NewEncoding(au.codec)
 	return au
 }
 
 func (au *AnonymURI) WithBase32Codec() *AnonymURI {
 	au.codec = Base32
+	au.userEncoding = NewEncoding(au.codec)
 	return au
 }
 
@@ -600,31 +608,29 @@ func (au *AnonymURI) Decrypt(dst, src []byte) (err error) {
 
 func (au AnonymURI) EncodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
-	codec := NewEncoding(au.codec)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
-		l += codec.EncodedLen(len(buf[au.uri.User.Offs:userEnd]))
+		l += au.userEncoding.EncodedLen(len(buf[au.uri.User.Offs:userEnd]))
 		// add 1 byte for '@'
 		l++
 	}
 	hostEnd := au.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
-		l += codec.EncodedLen(len(buf[au.uri.Host.Offs:hostEnd]))
+		l += au.hostEncoding.EncodedLen(len(buf[au.uri.Host.Offs:hostEnd]))
 	}
 	return l
 }
 
 func (au AnonymURI) DecodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
-	codec := NewEncoding(au.codec)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
-		l += codec.DecodedLen(len(buf[au.uri.User.Offs:userEnd]))
+		l += au.userEncoding.DecodedLen(len(buf[au.uri.User.Offs:userEnd]))
 		// add 1 byte for '@'
 		l++
 	}
 	if au.uri.Host.Len > 0 {
-		l += codec.DecodedLen(int(au.uri.Host.Len))
+		l += au.hostEncoding.DecodedLen(int(au.uri.Host.Len))
 	}
 	if au.uri.Port.Len > 0 {
 		l += int(au.uri.Port.Len)
@@ -645,7 +651,9 @@ func (au AnonymURI) DecodedLen(buf []byte) (l int) {
 }
 
 // Encode encodes using base32 the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
-// The encoded URI for sip:user@host is sip:base32(userinfo)@base32(hostinfo)
+// The encoded URI for sip:user@host is:
+// - either sip:base32(userinfo)@base32(hostinfo)
+// - or sip:hex(userinfo)@base32(hostinfo)
 func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
@@ -656,7 +664,6 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if len(opts) > 0 {
 		onlyHost = opts[0]
 	}
-	codec := NewEncoding(au.codec)
 	// 1. check dst len
 	if len(dst) < au.EncodedLen(src) {
 		return fmt.Errorf("\"dst\" buffer too small for encoded URI (%d bytes required and %d bytes available)",
@@ -669,7 +676,7 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if userEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.User.Offs), int(userEnd))
-		l := encodeToken(dst[au.uri.User.Offs:], src, pf, codec)
+		l := encodeToken(dst[au.uri.User.Offs:], src, pf, au.userEncoding)
 		// update the length of the encoded `user`
 		au.uri.User.Len = sipsp.OffsT(l)
 		// `password` was encoded as part of `user`
@@ -683,13 +690,13 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	// 4. encode host+port+params+header
 	hostEnd := au.hostPortParamsHeadersEnd()
 	if onlyHost {
-		// 4. copy, pad & encrypt `host`
+		// 4. copy, pad & encode 'host'
 		hostEnd = au.hostEnd()
 	}
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.Host.Offs), int(hostEnd))
-		l := encodeToken(dst[offs:], src, pf, codec)
+		l := encodeToken(dst[offs:], src, pf, au.hostEncoding)
 		// update the Offs and Len of the Host
 		au.uri.Host.Offs = sipsp.OffsT(offs)
 		au.uri.Host.Len = sipsp.OffsT(l)
@@ -715,10 +722,9 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 	var (
 		offs int = 0
 	)
-	codec := NewEncoding(au.codec)
 	if len(dst) < au.DecodedLen(src) {
 		return fmt.Errorf("\"dst\" buffer too small for decoded URI (%d bytes required and %d bytes available)",
-			len(dst), codec.DecodedLen(len(src)))
+			len(dst), au.DecodedLen(src))
 	}
 	// copy the SIP scheme
 	offs = int(au.copyScheme(dst, src))
@@ -731,10 +737,10 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 		_ = WithDebug && Dbg("user: %v %s", user, string(user))
 		ePf := sipsp.PField{
 			Offs: au.uri.User.Offs,
-			Len:  sipsp.OffsT(codec.DecodedLen(len(user))),
+			Len:  sipsp.OffsT(au.userEncoding.DecodedLen(len(user))),
 		}
 		eUser := ePf.Get(dst)
-		n, err := codec.Decode(eUser, user)
+		n, err := au.userEncoding.Decode(eUser, user)
 		if err != nil {
 			return fmt.Errorf("error decoding URI user part: %w", err)
 		}
@@ -750,10 +756,10 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 	host := au.uri.Host.Get(src)
 	dPf := sipsp.PField{
 		Offs: sipsp.OffsT(offs),
-		Len:  sipsp.OffsT(codec.DecodedLen(int(au.uri.Host.Len))),
+		Len:  sipsp.OffsT(au.hostEncoding.DecodedLen(int(au.uri.Host.Len))),
 	}
 	dHost := dPf.Get(dst)
-	l, err := codec.Decode(dHost, host)
+	l, err := au.hostEncoding.Decode(dHost, host)
 	if err != nil {
 		return fmt.Errorf("error decoding URI host part: %w", err)
 	}
