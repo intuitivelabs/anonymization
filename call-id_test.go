@@ -176,7 +176,7 @@ func TestCallIdAnonymization(t *testing.T) {
 				CBC: *cipher,
 			}
 			ac.SetPField(&c.CallID)
-			anonym := make([]byte, 4*len(callIds[i])+NewEncoding().EncodedLen(CallIdCBC().Encrypter.BlockSize()))
+			anonym := make([]byte, 4*len(callIds[i])+NewEncoding(Base32).EncodedLen(CallIdCBC().Encrypter.BlockSize()))
 			if _, err := ac.Anonymize(anonym, callIds[i]); err != nil {
 				t.Fatalf("cannot anonymize Call-ID %s: %s", callIds[i], err.Error())
 			}
