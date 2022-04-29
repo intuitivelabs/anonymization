@@ -66,7 +66,7 @@ func TestUriBase32Codec(t *testing.T) {
 	}
 	// tests
 	t.Run("encoding", func(t *testing.T) {
-		au := AnonymURI{}
+		au := NewAnonymURI()
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(u))
 			if err := au.Parse(u); err != nil {
@@ -132,9 +132,8 @@ func TestUriCBCEncrypt(t *testing.T) {
 	}
 	// tests
 	t.Run("dynamic memory", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
+		au.cbc = *cipher
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
@@ -154,16 +153,14 @@ func TestUriCBCEncrypt(t *testing.T) {
 				_ = WithDebug && Dbg("decrypted URI: %v", plaintxt)
 				t.Fatalf("cannot decrypt URI %s: %s", uris[i], err.Error())
 			}
-			_ = WithDebug && Dbg("decrypted URI: %v %s", (&au).Flat(plaintxt), string((&au).Flat(plaintxt)))
-			if !bytes.Equal(u, (&au).Flat(plaintxt)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, u, string((&au).Flat(plaintxt)))
+			_ = WithDebug && Dbg("decrypted URI: %v %s", (au).Flat(plaintxt), string((au).Flat(plaintxt)))
+			if !bytes.Equal(u, (au).Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, u, string((au).Flat(plaintxt)))
 			}
 		}
 	})
 	t.Run("static memory", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
 		au.cbc = *cipher
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(u))
@@ -178,22 +175,21 @@ func TestUriCBCEncrypt(t *testing.T) {
 			if err := au.Encrypt(ciphertxt, u); err != nil {
 				t.Fatalf("cannot encrypt URI %s: %s", u, err.Error())
 			}
-			_ = WithDebug && Dbg("encrypted URI: %v (len: %d)", (&au).Flat(ciphertxt), len((&au).Flat(ciphertxt)))
+			_ = WithDebug && Dbg("encrypted URI: %v (len: %d)", (au).Flat(ciphertxt), len((au).Flat(ciphertxt)))
 			plaintxt := DecryptBuf()
 			if err := au.Decrypt(plaintxt, ciphertxt); err != nil {
 				_ = WithDebug && Dbg("decrypted URI: %v", plaintxt)
 				t.Fatalf("cannot decrypt URI %s: %s", u, err.Error())
 			}
-			_ = WithDebug && Dbg("decrypted URI: %v %s", (&au).Flat(plaintxt), string((&au).Flat(plaintxt)))
-			if !bytes.Equal(u, (&au).Flat(plaintxt)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((&au).Flat(plaintxt)))
+			_ = WithDebug && Dbg("decrypted URI: %v %s", (au).Flat(plaintxt), string((au).Flat(plaintxt)))
+			if !bytes.Equal(u, (au).Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((au).Flat(plaintxt)))
 			}
 		}
 	})
 	t.Run("parameters", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
+		au.cbc = *cipher
 		for i, u := range urisPPH {
 			_ = WithDebug && Dbg("test case uri: %s", string(urisPPH[i]))
 			au.Parse(u)
@@ -208,15 +204,15 @@ func TestUriCBCEncrypt(t *testing.T) {
 			if err := au.Encrypt(ciphertxt, urisPPH[i], true); err != nil {
 				t.Fatalf("cannot encrypt URI %s: %s", urisPPH[i], err.Error())
 			}
-			_ = WithDebug && Dbg("encrypted URI: %v (len: %d)", (&au).Flat(ciphertxt), len((&au).Flat(ciphertxt)))
+			_ = WithDebug && Dbg("encrypted URI: %v (len: %d)", (au).Flat(ciphertxt), len((au).Flat(ciphertxt)))
 			plaintxt := DecryptBuf()
 			if err := au.Decrypt(plaintxt, ciphertxt); err != nil {
 				_ = WithDebug && Dbg("decrypted URI: %v", plaintxt)
 				t.Fatalf("cannot decrypt URI %s: %s", urisPPH[i], err.Error())
 			}
-			_ = WithDebug && Dbg("decrypted URI: %v %s", (&au).Flat(plaintxt), string((&au).Flat(plaintxt)))
-			if !bytes.Equal(urisPPH[i], (&au).Flat(plaintxt)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, urisPPH[i], string((&au).Flat(plaintxt)))
+			_ = WithDebug && Dbg("decrypted URI: %v %s", (au).Flat(plaintxt), string((au).Flat(plaintxt)))
+			if !bytes.Equal(urisPPH[i], (au).Flat(plaintxt)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, urisPPH[i], string((au).Flat(plaintxt)))
 			}
 		}
 	})
@@ -261,9 +257,8 @@ func TestUriAnonymization(t *testing.T) {
 	}
 	// tests
 	t.Run("CBC state", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
+		au.cbc = *cipher
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
@@ -272,16 +267,15 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 			}
-			_ = WithDebug && Dbg("anonymized uri: %v %s", (&au).Flat(anon), string((&au).Flat(anon)))
+			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anon), string(au.Flat(anon)))
 			dupAnon := make([]byte, len(anon))
-			dupAu := AnonymURI{
-				cbc: *cipher,
-			}
+			dupAu := NewAnonymURI()
+			dupAu.cbc = *cipher
 			dupRes, dupErr := dupAu.Anonymize(dupAnon, uris[i], true)
 			if dupErr != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], dupErr)
 			}
-			_ = WithDebug && Dbg("duplicated anonymized uri: %v %s", (&au).Flat(dupAnon), string((&dupAu).Flat(dupAnon)))
+			_ = WithDebug && Dbg("duplicated anonymized uri: %v %s", au.Flat(dupAnon), string(dupAu.Flat(dupAnon)))
 			if !bytes.Equal(res, dupRes) {
 				t.Fatalf(`expected: "%s" got: "%s"`, res, dupRes)
 			}
@@ -289,9 +283,8 @@ func TestUriAnonymization(t *testing.T) {
 	})
 	// anonymize everything including parameters
 	t.Run("CBC everything", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
+		au.cbc = *cipher
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			anonBuf := AnonymizeBuf()
@@ -299,22 +292,21 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 			}
-			_ = WithDebug && Dbg("anonymized uri: %v %s", (&au).Flat(anonBuf), string((&au).Flat(anonBuf)))
+			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anonBuf), string(au.Flat(anonBuf)))
 			deanonBuf := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanonBuf, res); err != nil {
-				t.Fatalf(`could not deanonymize SIP URI "%s": %s`, string((&au).Flat(deanonBuf)), err)
+				t.Fatalf(`could not deanonymize SIP URI "%s": %s`, string(au.Flat(deanonBuf)), err)
 			}
-			_ = WithDebug && Dbg("deanonymized uri: %v %s", (&au).Flat(deanonBuf), string((&au).Flat(deanonBuf)))
-			if !bytes.Equal(uris[i], (&au).Flat(deanonBuf)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((&au).Flat(deanonBuf)))
+			_ = WithDebug && Dbg("deanonymized uri: %v %s", au.Flat(deanonBuf), string(au.Flat(deanonBuf)))
+			if !bytes.Equal(uris[i], au.Flat(deanonBuf)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(au.Flat(deanonBuf)))
 			}
 		}
 	})
 	// anonymize only the host part
 	t.Run("CBC host only", func(t *testing.T) {
-		au := AnonymURI{
-			cbc: *cipher,
-		}
+		au := NewAnonymURI()
+		au.cbc = *cipher
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
@@ -323,14 +315,14 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonBufymize SIP URI %s: %s", uris[i], err)
 			}
-			_ = WithDebug && Dbg("anonymized uri: %v %s", (&au).Flat(anonBuf), string((&au).Flat(anonBuf)))
+			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anonBuf), string(au.Flat(anonBuf)))
 			deanonBuf := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanonBuf, res); err != nil {
-				t.Fatalf("could not deanonBufymize SIP URI %s: %s", string((&au).Flat(deanonBuf)), err)
+				t.Fatalf("could not deanonBufymize SIP URI %s: %s", string(au.Flat(deanonBuf)), err)
 			}
-			_ = WithDebug && Dbg("deanonymized uri: %v %s", (&au).Flat(deanonBuf), string((&au).Flat(deanonBuf)))
-			if !bytes.Equal(uris[i], (&au).Flat(deanonBuf)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((&au).Flat(deanonBuf)))
+			_ = WithDebug && Dbg("deanonymized uri: %v %s", au.Flat(deanonBuf), string(au.Flat(deanonBuf)))
+			if !bytes.Equal(uris[i], au.Flat(deanonBuf)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(au.Flat(deanonBuf)))
 			}
 		}
 	})
@@ -340,7 +332,7 @@ func TestUriAnonymization(t *testing.T) {
 		GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 		// generate IV for CBC
 		InitUriKeysFromMasterKey(encKey[:])
-		NewUriCBCWithKeys(GetUriKeys())
+		cipher := NewUriCBCWithKeys(GetUriKeys())
 		anonUris := [...][]byte{
 			//[]byte("sip:7FIQTTVPC65OONS0H7B1O9EAE8------@86O14ERFB383DT1IOALB79L798------"),
 			//[]byte("sip:A772DEUD3QBO8KNHHNA74OUVES------@JPPO6K1G21K9I2SIN5CV46RIT8------"),
@@ -408,21 +400,21 @@ func TestUriAnonymization(t *testing.T) {
 			[]byte("sip:A31DOJ6AEUIUPE2MFCGO5ESAH0------:5060;transport=udp"),
 		}
 		for i, u := range anonUris {
-			au := AnonymURI{
-				cbc:   *cipher,
-				codec: Base32,
-			}
+			au := NewAnonymURI()
+			au.cbc = *cipher
+			au.WithBase32Codec()
 			_ = WithDebug && Dbg("test case uri: %s", string(anonUris[i]))
 			au.Parse(u)
 			deanon := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanon, anonUris[i]); err != nil {
 				t.Fatalf("could not deanonymize SIP URI %s: %s", anonUris[i], err)
 			}
-			_ = WithDebug && Dbg("deanonymized uri: %v %s", (&au).Flat(deanon), string((&au).Flat(deanon)))
+			_ = WithDebug && Dbg("deanonymized uri: %v %s", au.Flat(deanon), string(au.Flat(deanon)))
 		}
 	})
 	t.Run("Pan everything", func(t *testing.T) {
-		au := AnonymURI{}
+		au := NewAnonymURI()
+		au.WithHexCodec()
 		au.WithKeyingMaterial(Keys[:])
 		au.WithPan()
 		for i, u := range uris {
@@ -432,14 +424,14 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 			}
-			_ = WithDebug && Dbg("anonymized uri: %v %s", (&au).Flat(anonBuf), string((&au).Flat(anonBuf)))
+			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anonBuf), string(au.Flat(anonBuf)))
 			deanonBuf := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanonBuf, res); err != nil {
-				t.Fatalf(`could not deanonymize SIP URI "%s": %s`, string((&au).Flat(deanonBuf)), err)
+				t.Fatalf(`could not deanonymize SIP URI "%s": %s`, string(au.Flat(deanonBuf)), err)
 			}
-			_ = WithDebug && Dbg("deanonymized uri: %v %s", (&au).Flat(deanonBuf), string((&au).Flat(deanonBuf)))
-			if !bytes.Equal(uris[i], (&au).Flat(deanonBuf)) {
-				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string((&au).Flat(deanonBuf)))
+			_ = WithDebug && Dbg("deanonymized uri: %v %s", au.Flat(deanonBuf), string(au.Flat(deanonBuf)))
+			if !bytes.Equal(uris[i], au.Flat(deanonBuf)) {
+				t.Fatalf(`expected: "%s" got: "%s"`, uris[i], string(au.Flat(deanonBuf)))
 			}
 		}
 	})
@@ -455,9 +447,8 @@ func BenchmarkUriAnonymization(b *testing.B) {
 	GenerateKeyFromPassphraseAndCopy(pass, EncryptionKeyLen, encKey[:])
 	InitUriKeysFromMasterKey(encKey[:])
 	cipher := NewUriCBCWithKeys(GetUriKeys())
-	auCBC := AnonymURI{
-		cbc: *cipher,
-	}
+	auCBC := NewAnonymURI()
+	auCBC.cbc = *cipher
 	// initialize the URI Pan based encryption
 	GenerateAllKeysWithPassphrase(pass)
 	auPan := AnonymURI{}
