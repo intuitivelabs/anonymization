@@ -137,8 +137,7 @@ func TestUriCBCEncrypt(t *testing.T) {
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
 			au.Parse(u)
-			bs := cipher.User.Encrypter.BlockSize()
-			l, err := au.PaddedLen(bs, bs)
+			l, err := au.PaddedLen()
 			if err != nil {
 				t.Fatalf("cannot compute URI pad len %s: %s", uris[i], err.Error())
 			}
@@ -165,8 +164,7 @@ func TestUriCBCEncrypt(t *testing.T) {
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(u))
 			au.Parse(u)
-			bs := cipher.User.Encrypter.BlockSize()
-			l, err := au.PaddedLen(bs, bs)
+			l, err := au.PaddedLen()
 			if err != nil {
 				t.Fatalf("cannot compute URI pad len %s: %s", u, err.Error())
 			}
@@ -193,8 +191,7 @@ func TestUriCBCEncrypt(t *testing.T) {
 		for i, u := range urisPPH {
 			_ = WithDebug && Dbg("test case uri: %s", string(urisPPH[i]))
 			au.Parse(u)
-			bs := cipher.User.Encrypter.BlockSize()
-			l, err := au.PaddedLen(bs, bs)
+			l, err := au.PaddedLen()
 			if err != nil {
 				t.Fatalf("cannot compute URI pad len %s: %s", urisPPH[i], err.Error())
 			}

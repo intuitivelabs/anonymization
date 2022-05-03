@@ -21,7 +21,7 @@ import (
 type BitPrefixLen int
 
 const (
-	PanPadSize = 4
+	PanPaddingSize = 4
 )
 
 // errors

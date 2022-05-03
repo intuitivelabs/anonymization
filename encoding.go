@@ -13,11 +13,12 @@ const (
 	pad rune = '-'
 )
 
+// type of codec used for encoding the anonymized object
 type Codec int
 
 const (
-	Hex Codec = iota
-	Base32
+	Base32 Codec = iota
+	Hex
 )
 
 type Encoding interface {
