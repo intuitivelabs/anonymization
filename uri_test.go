@@ -289,6 +289,7 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 			}
+			t.Logf("plain: %s, anonymized: %s", string(uris[i]), string(au.Flat(anonBuf)))
 			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anonBuf), string(au.Flat(anonBuf)))
 			deanonBuf := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanonBuf, res); err != nil {
@@ -411,8 +412,7 @@ func TestUriAnonymization(t *testing.T) {
 	})
 	t.Run("Pan everything", func(t *testing.T) {
 		au := NewAnonymURI()
-		au.WithHexCodec()
-		au.WithKeyingMaterial(Keys[:])
+		au.WithKeyingMaterial(Keys[UriUsernameKey : UriHostKey+1])
 		au.WithPan()
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
@@ -421,6 +421,7 @@ func TestUriAnonymization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)
 			}
+			t.Logf("plain: %s, anonymized: %s", string(uris[i]), string(au.Flat(anonBuf)))
 			_ = WithDebug && Dbg("anonymized uri: %v %s", au.Flat(anonBuf), string(au.Flat(anonBuf)))
 			deanonBuf := DeanonymizeBuf()
 			if _, err := au.Deanonymize(deanonBuf, res); err != nil {
