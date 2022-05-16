@@ -201,7 +201,7 @@ func NewAnonymURI() *AnonymURI {
 }
 
 // getUserAnonymizationType returns the anonymization type used for the user part of the URI encoded
-// as an ASCII character in the range [g-r]
+// as an ASCII character in the range [g-v]
 func (au AnonymURI) getUserAnonymizationType() (aType byte) {
 	aType = byte(au.codec)
 	aType = aType | (byte(au.encryption) << 2)
@@ -228,9 +228,13 @@ func (au *AnonymURI) WithKeyingMaterial(keys []KeyingMaterial) *AnonymURI {
 }
 
 func (au *AnonymURI) WithPan() *AnonymURI {
+	// set-up the encryption
 	au.encryption = PanMode
 	au.pan.WithBitsPrefixBoundary(EightBitsPrefix)
 	au.padding.u = PanPaddingSize
+
+	// set-up the encoding
+	au.WithHexCodec()
 	return au
 }
 
@@ -727,8 +731,11 @@ func (au AnonymURI) DecodedLen(buf []byte) (l int) {
 
 // Encode encodes using base32 the user info and host part of uri preserving the generic URI format sip:userinfo@hostinfo.
 // The encoded URI for sip:user@host is:
-// - either sip:base32(userinfo)@base32(hostinfo)
-// - or sip:hex(userinfo)@base32(hostinfo)
+// - either sip:[anonymizationType]base32(userinfo)@base32(hostinfo)
+// - or sip:[anonymizationType]hex(userinfo)@base32(hostinfo)
+// 'anonymizationType' is an optional ASCII character in the range [g-v] which describes:
+// - encoding type for the user info
+// - encryption mode for the user info
 func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	df := DbgOn()
 	defer DbgRestore(df)
