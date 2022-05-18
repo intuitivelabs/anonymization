@@ -34,12 +34,12 @@ func isPadded(buf []byte, pad byte) bool {
 	return true
 }
 
-//PKCSPadLen returns the length of the necessary padding
-func PKCSPadLen(length, size int) (int, error) {
-	if size > 255 {
-		return 0, fmt.Errorf("block size %d not supported by padding algorithm.", size)
+//PadLen returns the number of padding bytes necessary for extending length to a multiple of factor
+func PadLen(length, factor int) (int, error) {
+	if factor > 255 {
+		return 0, fmt.Errorf("block factor %d not supported by padding algorithm.", factor)
 	}
-	return size - (length % size), nil
+	return factor - (length % factor), nil
 }
 
 // PKCSPad padds the slice starting at offset and having length bytes up to a multiple of size. Size has to be less than 256.
@@ -51,7 +51,7 @@ func PKCSPad(buf []byte, offset, length, size int) ([]byte, error) {
 	if size > 255 {
 		return nil, fmt.Errorf("block size %d not supported by padding algorithm.", size)
 	}
-	padLen, err := PKCSPadLen(length, size)
+	padLen, err := PadLen(length, size)
 	if err != nil {
 		return nil, fmt.Errorf("cannot compute padding length: %w.", err)
 	}

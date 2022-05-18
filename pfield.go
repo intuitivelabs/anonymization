@@ -13,6 +13,7 @@ const (
 type AnonymPField struct {
 	PField sipsp.PField
 	CBC    CBC
+	Codec  Codec
 }
 
 func (apf *AnonymPField) SetPField(pf *sipsp.PField) {
@@ -25,17 +26,17 @@ func (apf *AnonymPField) WithKeyingMaterial(km *KeyingMaterial) *AnonymPField {
 }
 
 func (apf *AnonymPField) EncodedLen() int {
-	return NewEncoding().EncodedLen(int(apf.PField.Len))
+	return NewEncoding(apf.Codec).EncodedLen(int(apf.PField.Len))
 }
 
 func (apf *AnonymPField) DecodedLen() int {
-	return NewEncoding().DecodedLen(int(apf.PField.Len))
+	return NewEncoding(apf.Codec).DecodedLen(int(apf.PField.Len))
 }
 
-func (apf *AnonymPField) PKCSPaddedLen(size int) (length int, err error) {
+func (apf *AnonymPField) PaddedLen(size int) (length int, err error) {
 	length = 0
 	err = nil
-	if length, err = PKCSPadLen(int(apf.PField.Len), size); err != nil {
+	if length, err = PadLen(int(apf.PField.Len), size); err != nil {
 		err = fmt.Errorf("cannot pad: %w", err)
 		return
 	}
@@ -49,7 +50,7 @@ func (apf *AnonymPField) CBCEncrypt(dst, src []byte) (err error) {
 	err = nil
 	blockSize := apf.CBC.Encrypter.BlockSize()
 	// 1. check dst len
-	paddedLen, err := apf.PKCSPaddedLen(blockSize)
+	paddedLen, err := apf.PaddedLen(blockSize)
 	if err != nil {
 		err = fmt.Errorf("cannot encrypt: %w", err)
 		return
@@ -84,7 +85,7 @@ func (apf *AnonymPField) CBCDecrypt(dst, src []byte) (err error) {
 
 func (apf *AnonymPField) Encode(dst, src []byte) (err error) {
 	err = nil
-	codec := NewEncoding()
+	codec := NewEncoding(apf.Codec)
 	// 1. check dst len
 	if len(dst) < apf.EncodedLen() {
 		err = fmt.Errorf("\"dst\" buffer too small for encoded pfield (%d bytes required and %d bytes available)",
@@ -101,7 +102,7 @@ func (apf *AnonymPField) Encode(dst, src []byte) (err error) {
 
 func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
 	err = nil
-	codec := NewEncoding()
+	codec := NewEncoding(apf.Codec)
 	// 1. check dst len
 	if len(dst) < apf.DecodedLen() {
 		err = fmt.Errorf("\"dst\" buffer too small for decoded pfield (%d bytes required and %d bytes available)",

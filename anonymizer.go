@@ -15,7 +15,7 @@ func NewAnonymizationBuf(l int) []byte {
 type Anonymizer struct {
 	Validator Validator
 	Ipcipher  *Ipcipher
-	Pan       *PanIPv4
+	PanIPv4   *PanIPv4
 	Uri       *AnonymURI
 	CallId    *AnonymPField
 }
@@ -56,7 +56,7 @@ func NewAnonymizerWithKey(challenge string, key []byte) (*Anonymizer, error) {
 	}
 
 	// initialize the IP Prefix-preserving anonymization
-	anonymizer.Pan = NewPanIPv4()
+	anonymizer.PanIPv4 = NewPanIPv4()
 
 	// initialize the URI CBC based encryption
 	anonymizer.Uri = NewAnonymURI()
@@ -79,7 +79,7 @@ func NewAnonymizer(challenge string) (*Anonymizer, error) {
 
 	anonymizer.Ipcipher = &Ipcipher{}
 	// initialize the IP Prefix-preserving anonymization
-	anonymizer.Pan = NewPanIPv4()
+	anonymizer.PanIPv4 = NewPanIPv4()
 
 	// initialize the URI CBC based encryption
 	anonymizer.Uri = NewAnonymURI()
@@ -99,8 +99,8 @@ func (a *Anonymizer) UpdateKeys(keys []KeyingMaterial) (*Anonymizer, error) {
 			if _, err := a.Ipcipher.WithKey(key.Master[:]); err != nil {
 				return nil, err
 			}
-		case PanKey:
-			a.Pan.WithKeyingMaterial(&key)
+		case PanIPv4Key:
+			((*Pan)(a.PanIPv4)).WithKeyingMaterial(&key)
 		case UriUsernameKey:
 			// initialize both username and host keys
 			a.Uri.WithKeyingMaterial(keys[i : i+2])

@@ -63,7 +63,7 @@ var Salts = [...]Salt{
 const (
 	FirstKey, ValidationKey = iota, iota
 	_, IpcipherKey
-	_, PanKey
+	_, PanIPv4Key
 	_, UriUsernameKey
 	_, UriHostKey
 	_, CallIdKey
