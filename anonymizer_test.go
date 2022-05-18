@@ -74,7 +74,7 @@ func TestAnonymizer(t *testing.T) {
 			go wt()
 		}
 	})
-	t.Run("uris", func(t *testing.T) {
+	t.Run("cbc uris", func(t *testing.T) {
 		defer waitForAll()
 		uris := [...][]byte{
 			[]byte("sip:servicevolontaireinternational@bar.com"),
@@ -112,6 +112,68 @@ func TestAnonymizer(t *testing.T) {
 				t.Fatalf("anonymizer initialization failure")
 			}
 			a.UpdateKeys(Keys[:])
+			for _, u := range uris {
+				a.Uri.Parse(u)
+				aUri, err := a.Uri.Anonymize(anonBuf[:], u)
+				if err != nil {
+					t.Fatalf("could not anonymize SIP URI %s: %s", u, err)
+				}
+				_ = WithDebug && Dbg("anonymized uri: %v %s", aUri, string(aUri))
+				dUri, err := a.Uri.Deanonymize(deanonBuf[:], aUri)
+				if err != nil {
+					t.Fatalf(`could not deanonymize SIP URI "%s": %s`, aUri, err)
+				}
+				_ = WithDebug && Dbg("deanonymized uri: %v %s", dUri, string(dUri))
+				if !bytes.Equal(u, dUri) {
+					t.Fatalf(`expected: "%s" got: "%s"`, u, dUri)
+				}
+			}
+		}
+		GenerateAllKeysWithPassphrase(pass)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go wt()
+		}
+	})
+	t.Run("pan uris", func(t *testing.T) {
+		defer waitForAll()
+		uris := [...][]byte{
+			[]byte("sip:servicevolontaireinternational@bar.com"),
+			[]byte("sip:foo:pass@bar.com"),
+			[]byte("sip:foo:pass@bar.com:5060"),
+			[]byte("sip:foo:pass@bar.com:5060;ttl=1"),
+			[]byte("sip:foo:pass@bar.com:5060;ttl=1?h=foo"),
+			[]byte("sip:foo:pass@bar.com;ttl=1"),
+			[]byte("sip:foo:pass@bar.com;ttl=1?h=foo"),
+			[]byte("sip:foo:pass@bar.com?h=foo"),
+			[]byte("sip:foo@bar.com"),
+			[]byte("sips:foo:pass@bar.com"),
+			[]byte("sip:1234"),
+			[]byte("sip:1234:5060"),
+			[]byte("sip:1234:5060;ttl=1"),
+			[]byte("sip:1234:5060;ttl=1?h=foo"),
+			[]byte("sip:1234;ttl=1"),
+			[]byte("sip:1234?h=foo"),
+			[]byte("sip:foo"),
+			[]byte("sip:004956768326@188.74.3.208:3894"),
+			[]byte("sip:004956768326@188.74.3.208:3894"),
+			[]byte("sip:0049567683269215869@188.74.3.208:3894"),
+			[]byte("sip:0049567683269215000@188.74.3.208:3894"),
+			[]byte("sip:004924554390004@85.212.141.52"),
+		}
+		// worker thread function
+		wt := func() {
+			defer ready()
+			var (
+				anonBuf   [uriMaxBufSize]byte
+				deanonBuf [uriMaxBufSize]byte
+			)
+			a, err := NewAnonymizer("a86483ec-8568-48da-b2cc-b4db9307d7f4")
+			if err != nil {
+				t.Fatalf("anonymizer initialization failure")
+			}
+			a.UpdateKeys(Keys[:])
+			a.Uri.WithPan()
 			for _, u := range uris {
 				a.Uri.Parse(u)
 				aUri, err := a.Uri.Anonymize(anonBuf[:], u)
