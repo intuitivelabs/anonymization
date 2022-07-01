@@ -19,6 +19,7 @@ type Codec int
 const (
 	Base32 Codec = iota
 	Hex
+	InvalidCodec
 )
 
 type Encoding interface {

@@ -412,7 +412,7 @@ func TestUriAnonymization(t *testing.T) {
 		au.WithPan()
 		for i, u := range uris {
 			_ = WithDebug && Dbg("test case uri: %s", string(uris[i]))
-			anonBuf := AnonymizeBuf()
+			anonBuf := AnonymizeBuf(len(u))
 			res, err := au.Anonymize(anonBuf, u)
 			if err != nil {
 				t.Fatalf("could not anonymize SIP URI %s: %s", uris[i], err)

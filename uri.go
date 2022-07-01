@@ -32,10 +32,17 @@ type Encryption int
 const (
 	CbcMode Encryption = iota
 	PanMode
+	InvalidEncryption
+)
+
+const (
+	anonTypeAlphabetStart = 'g'
 )
 
 // Encoding used for the representation of the binary anonymized URI
 type UriEncoding struct {
+	base32 Encoding
+	hex    Encoding
 	// encoding for the user part (either hex or base32)
 	user Encoding
 	// encoding for the host part (base32)
@@ -44,24 +51,35 @@ type UriEncoding struct {
 
 func NewUriEncoding(c Codec) (enc *UriEncoding) {
 	enc = &UriEncoding{}
-	if enc.user = NewEncoding(c); enc.user == nil {
-		// unknown encoding
+	enc.base32 = NewEncoding(Base32)
+	enc.hex = NewEncoding(Hex)
+	switch c {
+	case Base32:
+		enc.user = enc.base32
+	case Hex:
+		enc.user = enc.hex
+	default:
+		//unkown encoding
 		return nil
 	}
 	// host is always encoded using base32
-	enc.host = NewEncoding(Base32)
+	enc.host = enc.base32
 	return
 }
 
 func (enc *UriEncoding) WithHexCodec() *UriEncoding {
-	enc.host = NewEncoding(Base32)
-	enc.user = NewEncoding(Hex)
+	enc.base32 = NewEncoding(Base32)
+	enc.hex = NewEncoding(Hex)
+	enc.host = enc.base32
+	enc.user = enc.hex
 	return enc
 }
 
 func (enc *UriEncoding) WithBase32Codec() *UriEncoding {
-	enc.host = NewEncoding(Base32)
-	enc.user = NewEncoding(Base32)
+	enc.base32 = NewEncoding(Base32)
+	enc.hex = NewEncoding(Hex)
+	enc.host = enc.base32
+	enc.user = enc.base32
 	return enc
 }
 
@@ -181,9 +199,13 @@ type AnonymURI struct {
 	uri sipsp.PsipURI
 	// codec used for encoding the user part of the binary anonymized URI
 	codec Codec
-	// encoding used for the representation of the binary anonymized URI
-	encoding UriEncoding
-	padding  Padding
+	// encoding/decoding used for the representation of the binary anonymized URI
+	// encoding is used for anonymization; it is configuration driven
+	encode UriEncoding
+	// decoding is used for de-anonymization; the decoder can be dynamically changed based
+	// on the uri username first character
+	decode  UriEncoding
+	padding Padding
 	// encryption used for anonymizing of the user part
 	encryption Encryption
 	// chain block cipher anomyizer; either cbc or pan is used for the user part
@@ -196,23 +218,36 @@ func NewAnonymURI() *AnonymURI {
 	a := AnonymURI{}
 	// set a default padding size; use BlockSize
 	a.padding = Padding{u: BlockSize, h: BlockSize}
-	a.encoding = *NewUriEncoding(a.codec)
+	a.pan.WithBitsPrefixBoundary(EightBitsPrefix)
+	a.encode = *NewUriEncoding(a.codec)
+	a.decode = *NewUriEncoding(a.codec)
 	return &a
 }
 
-// getUserAnonymizationType returns the anonymization type used for the user part of the URI encoded
+func (au AnonymURI) decUserAnonymizationType(src []byte) (Codec, Encryption) {
+	if au.userPassLen() > 0 {
+		code := src[au.uri.User.Offs]
+		if code >= anonTypeAlphabetStart || code < (anonTypeAlphabetStart+15) {
+			aType := code - anonTypeAlphabetStart
+			return Codec(aType & 3), Encryption((aType & 0xC) >> 2)
+		}
+	}
+	return InvalidCodec, InvalidEncryption
+}
+
+// encUserAnonymizationType returns the anonymization type used for the user part of the URI encoded
 // as an ASCII character in the range [g-v]
-func (au AnonymURI) getUserAnonymizationType() (aType byte) {
+func (au AnonymURI) encUserAnonymizationType() (aType byte) {
 	aType = byte(au.codec)
 	aType = aType | (byte(au.encryption) << 2)
-	aType += 'g'
+	aType += anonTypeAlphabetStart
 	return
 }
 
 func (au AnonymURI) hasUserAnonymizationType(src []byte) bool {
 	if au.userPassLen() > 0 {
 		aType := src[au.uri.User.Offs]
-		return aType >= 'g' && aType < ('g'+15)
+		return aType >= anonTypeAlphabetStart && aType < (anonTypeAlphabetStart+15)
 	}
 	return false
 }
@@ -227,26 +262,99 @@ func (au *AnonymURI) WithKeyingMaterial(keys []KeyingMaterial) *AnonymURI {
 	return au
 }
 
-func (au *AnonymURI) WithPan() *AnonymURI {
+func (au *AnonymURI) SetUserCodec(codec Codec) {
+	switch codec {
+	case Hex:
+		au.WithHexCodec()
+	case Base32:
+		fallthrough
+	default:
+		au.WithBase32Codec()
+	}
+}
+
+func (au *AnonymURI) SetUserDecoder(codec Codec) {
+	switch codec {
+	case Hex:
+		au.WithHexDecoder()
+	case Base32:
+		fallthrough
+	default:
+		au.WithBase32Decoder()
+	}
+}
+
+func (au *AnonymURI) SetUserEncryption(enc Encryption) {
+	switch enc {
+	case PanMode:
+		au.WithPanEnc()
+	case CbcMode:
+		fallthrough
+	default:
+		au.WithCbcEnc()
+	}
+}
+
+// WithPanEnc sets the encryption to PAN (prefix preserving)
+func (au *AnonymURI) WithPanEnc() *AnonymURI {
 	// set-up the encryption
 	au.encryption = PanMode
 	au.pan.WithBitsPrefixBoundary(EightBitsPrefix)
 	au.padding.u = PanPaddingSize
 
+	return au
+}
+
+// WithCbcEnc sets the encryption to AES-CBC mode
+func (au *AnonymURI) WithCbcEnc() *AnonymURI {
+	// set-up the encryption
+	au.encryption = CbcMode
+	au.padding.u = BlockSize
+
+	return au
+}
+
+// WithPan sets the encryption to PAN (prefix preserving) and encoding to hexadecimal
+func (au *AnonymURI) WithPan() *AnonymURI {
+	// set-up the encryption
+	au.WithPanEnc()
 	// set-up the encoding
 	au.WithHexCodec()
+
+	return au
+}
+
+// WithCbc sets the encryption to AES-CBC mode and encoding to base32
+func (au *AnonymURI) WithCbc() *AnonymURI {
+	// set-up the encryption
+	au.WithCbcEnc()
+	// set-up the encoding
+	au.WithBase32Codec()
+
+	return au
+}
+
+func (au *AnonymURI) WithHexDecoder() *AnonymURI {
+	(&au.decode).WithHexCodec()
 	return au
 }
 
 func (au *AnonymURI) WithHexCodec() *AnonymURI {
 	au.codec = Hex
-	(&au.encoding).WithHexCodec()
+	(&au.encode).WithHexCodec()
+	(&au.decode).WithHexCodec()
+	return au
+}
+
+func (au *AnonymURI) WithBase32Decoder() *AnonymURI {
+	(&au.decode).WithBase32Codec()
 	return au
 }
 
 func (au *AnonymURI) WithBase32Codec() *AnonymURI {
 	au.codec = Base32
-	(&au.encoding).WithBase32Codec()
+	(&au.encode).WithBase32Codec()
+	(&au.decode).WithBase32Codec()
 	return au
 }
 
@@ -687,7 +795,7 @@ func (au AnonymURI) EncodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
-		l += au.encoding.user.EncodedLen(len(buf[au.uri.User.Offs:userEnd]))
+		l += au.encode.user.EncodedLen(len(buf[au.uri.User.Offs:userEnd]))
 		// add 1 byte for the anonymization type
 		l++
 		// add 1 byte for '@'
@@ -695,7 +803,7 @@ func (au AnonymURI) EncodedLen(buf []byte) (l int) {
 	}
 	hostEnd := au.hostPortParamsHeadersEnd()
 	if hostEnd > 0 {
-		l += au.encoding.host.EncodedLen(len(buf[au.uri.Host.Offs:hostEnd]))
+		l += au.encode.host.EncodedLen(len(buf[au.uri.Host.Offs:hostEnd]))
 	}
 	return l
 }
@@ -704,12 +812,12 @@ func (au AnonymURI) DecodedLen(buf []byte) (l int) {
 	l = int(au.uri.Scheme.Len)
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
-		l += au.encoding.user.DecodedLen(len(buf[au.uri.User.Offs:userEnd]))
+		l += au.decode.user.DecodedLen(len(buf[au.uri.User.Offs:userEnd]))
 		// add 1 byte for '@'
 		l++
 	}
 	if au.uri.Host.Len > 0 {
-		l += au.encoding.host.DecodedLen(int(au.uri.Host.Len))
+		l += au.decode.host.DecodedLen(int(au.uri.Host.Len))
 	}
 	if au.uri.Port.Len > 0 {
 		l += int(au.uri.Port.Len)
@@ -757,11 +865,11 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	userEnd := au.userPassEnd()
 	if userEnd > 0 {
 		// first character for user+pass is a digit which describes encryption and encoding
-		dst[offs] = au.getUserAnonymizationType()
+		dst[offs] = au.encUserAnonymizationType()
 		offs++
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.User.Offs), int(userEnd))
-		l := encodeToken(dst[offs:], src, pf, au.encoding.user)
+		l := encodeToken(dst[offs:], src, pf, au.encode.user)
 		// update the length of the encoded `user`
 		au.uri.User.Len = sipsp.OffsT(l) + 1
 		// `password` was encoded as part of `user`
@@ -781,7 +889,7 @@ func (au *AnonymURI) Encode(dst, src []byte, opts ...bool) (err error) {
 	if hostEnd > 0 {
 		pf := sipsp.PField{}
 		pf.Set(int(au.uri.Host.Offs), int(hostEnd))
-		l := encodeToken(dst[offs:], src, pf, au.encoding.host)
+		l := encodeToken(dst[offs:], src, pf, au.encode.host)
 		// update the Offs and Len of the Host
 		au.uri.Host.Offs = sipsp.OffsT(offs)
 		au.uri.Host.Len = sipsp.OffsT(l)
@@ -818,19 +926,25 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 	if userEnd > 0 {
 		pf := sipsp.PField{}
 		if au.hasUserAnonymizationType(src) {
+			codec, enc := au.decUserAnonymizationType(src)
+			_ = WithDebug && Dbg("codec: %v enc: %v", codec, enc)
+			au.SetUserCodec(codec)
+			au.SetUserEncryption(enc)
 			// skip the first character of the user part; it is used for encoding the anonymization type
 			pf.Set(int(au.uri.User.Offs+1), int(userEnd))
 		} else {
 			pf.Set(int(au.uri.User.Offs), int(userEnd))
+			// reset the user anonymization type to default
+			au.WithCbc()
 		}
 		user := pf.Get(src)
 		_ = WithDebug && Dbg("user: %v %s", user, string(user))
 		dPf := sipsp.PField{
 			Offs: au.uri.User.Offs,
-			Len:  sipsp.OffsT(au.encoding.user.DecodedLen(len(user))),
+			Len:  sipsp.OffsT(au.decode.user.DecodedLen(len(user))),
 		}
 		dUser := dPf.Get(dst)
-		n, err := au.encoding.user.Decode(dUser, user)
+		n, err := au.decode.user.Decode(dUser, user)
 		if err != nil {
 			return fmt.Errorf("error decoding URI user part: %w", err)
 		}
@@ -846,10 +960,10 @@ func (au *AnonymURI) Decode(dst, src []byte) (err error) {
 	host := au.uri.Host.Get(src)
 	dPf := sipsp.PField{
 		Offs: sipsp.OffsT(offs),
-		Len:  sipsp.OffsT(au.encoding.host.DecodedLen(int(au.uri.Host.Len))),
+		Len:  sipsp.OffsT(au.decode.host.DecodedLen(int(au.uri.Host.Len))),
 	}
 	dHost := dPf.Get(dst)
-	l, err := au.encoding.host.Decode(dHost, host)
+	l, err := au.decode.host.Decode(dHost, host)
 	if err != nil {
 		return fmt.Errorf("error decoding URI host part: %w", err)
 	}
