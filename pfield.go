@@ -101,6 +101,9 @@ func (apf *AnonymPField) Encode(dst, src []byte) (err error) {
 }
 
 func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
+	var (
+		l int
+	)
 	err = nil
 	codec := NewEncoding(apf.Codec)
 	// 1. check dst len
@@ -109,7 +112,7 @@ func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
 			apf.DecodedLen(), len(dst))
 		return
 	}
-	l, _ := decodeToken(dst, src, apf.PField, codec)
+	l, err = decodeToken(dst, src, apf.PField, codec)
 	apf.PField = sipsp.PField{
 		Offs: 0,
 		Len:  sipsp.OffsT(l),
