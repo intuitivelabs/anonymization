@@ -135,6 +135,9 @@ func (apf *AnonymPField) Anonymize(dst, src []byte) ([]byte, error) {
 
 func (apf *AnonymPField) Deanonymize(dst, src []byte) ([]byte, error) {
 	var decoded [PfMaxBufSize]byte
+	df := DbgOn()
+	defer DbgRestore(df)
+	_ = WithDebug && Dbg("anonymized (src) token: %v", src)
 	if err := apf.Decode(decoded[:], src); err != nil {
 		return nil, fmt.Errorf("cannot deanonymize: %w", err)
 	}
