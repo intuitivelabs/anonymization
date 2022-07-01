@@ -101,6 +101,9 @@ func (apf *AnonymPField) Encode(dst, src []byte) (err error) {
 }
 
 func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
+	var (
+		l int
+	)
 	err = nil
 	codec := NewEncoding(apf.Codec)
 	// 1. check dst len
@@ -109,7 +112,7 @@ func (apf *AnonymPField) Decode(dst, src []byte) (err error) {
 			apf.DecodedLen(), len(dst))
 		return
 	}
-	l, _ := decodeToken(dst, src, apf.PField, codec)
+	l, err = decodeToken(dst, src, apf.PField, codec)
 	apf.PField = sipsp.PField{
 		Offs: 0,
 		Len:  sipsp.OffsT(l),
@@ -132,6 +135,9 @@ func (apf *AnonymPField) Anonymize(dst, src []byte) ([]byte, error) {
 
 func (apf *AnonymPField) Deanonymize(dst, src []byte) ([]byte, error) {
 	var decoded [PfMaxBufSize]byte
+	df := DbgOn()
+	defer DbgRestore(df)
+	_ = WithDebug && Dbg("anonymized (src) token: %v", src)
 	if err := apf.Decode(decoded[:], src); err != nil {
 		return nil, fmt.Errorf("cannot deanonymize: %w", err)
 	}

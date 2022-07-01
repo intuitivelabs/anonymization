@@ -76,6 +76,9 @@ func PKCSUnpad(buf []byte, size int) ([]byte, error) {
 		return nil, fmt.Errorf("block size %d not supported by padding algorithm.", size)
 	}
 	l := len(buf)
+	if l == 0 {
+		return nil, fmt.Errorf("empty buffer")
+	}
 	if l%size != 0 {
 		return nil, fmt.Errorf("buffer length %d is not a multiple of block size %d.", l, size)
 	}
